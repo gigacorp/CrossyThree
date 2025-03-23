@@ -67,6 +67,19 @@ function createPlayer() {
     return player;
 }
 
+function createGrass() {
+    const grassGeometry = new THREE.PlaneGeometry(2000, 2000);
+    const grassMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x3a8c3a,  // Dark green color
+        side: THREE.DoubleSide
+    });
+    const grassField = new THREE.Mesh(grassGeometry, grassMaterial);
+    grassField.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+    grassField.position.y = 0; // Place at ground level
+    grassField.receiveShadow = true;
+    return grassField;
+}
+
 // Scene setup
 const scene = new THREE.Scene();
 const camera = createCamera();
@@ -79,6 +92,10 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
+
+// Create grass field
+const grassField = createGrass();
+scene.add(grassField);
 
 // Player setup
 const player = createPlayer();
@@ -108,11 +125,6 @@ directionalLight.shadow.camera.right = 200;
 directionalLight.shadow.camera.top = 200;
 directionalLight.shadow.camera.bottom = -200;
 scene.add(directionalLight);
-
-// Movement variables - adjusted to match new scale
-const moveSpeed = 15;
-let moveX = 0;
-let moveZ = 0;
 
 // Keyboard controls and movement queue
 const moveQueue = [];
