@@ -114,16 +114,23 @@ scene.add(ambientLight);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 directionalLight.position.set(300, 300, 300);
-directionalLight.target = player;
 directionalLight.castShadow = true;
 directionalLight.shadow.mapSize.width = 2048;
 directionalLight.shadow.mapSize.height = 2048;
 directionalLight.shadow.camera.near = 0.5;
-directionalLight.shadow.camera.far = 1000;
-directionalLight.shadow.camera.left = -200;
-directionalLight.shadow.camera.right = 200;
-directionalLight.shadow.camera.top = 200;
-directionalLight.shadow.camera.bottom = -200;
+directionalLight.shadow.camera.far = 2000;
+directionalLight.shadow.camera.left = -1000;
+directionalLight.shadow.camera.right = 1000;
+directionalLight.shadow.camera.top = 1000;
+directionalLight.shadow.camera.bottom = -1000;
+
+// Create a target for the directional light
+const lightTarget = new THREE.Object3D();
+lightTarget.position.set(0, 0, 300);
+scene.add(lightTarget);
+directionalLight.target = lightTarget;
+directionalLight.target.updateMatrixWorld();
+
 scene.add(directionalLight);
 
 // Keyboard controls and movement queue
