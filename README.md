@@ -1,13 +1,29 @@
 # CrossyThree
 
-A ThreeJS test project featuring an orthographic top-down camera perspective. The player is represented by a white box.
+ThreeJS-based, Crossy Road-inspired, vibe coded thing
 
-## Input
+## How to Run
 
-Control the player with arrow keys. The player moves one "tile" at a time.
+1. Clone the repository
+2. Open index.html in a web browser
+3. Use arrow keys to control the player and start hopping around!
 
 ## Tech Stack
 
 - ThreeJS
 - Frontend-only implementation using index.html and game.js files
 - ThreeJS loaded via CDN
+
+## Credits
+
+- Inspired by Crossy Road by (Hipster Whale)[https://www.hipsterwhale.com]
+- This tutorial was helpful: https://www.youtube.com/watch?v=vNr3_hQ3Bws
+- Made using [Cursor](https://cursor.sh). Almost all code in this project is AI-generated, with minimal human intervention.
+
+## Feedback
+
+I'm a solo developer making this thing. The best way to reach out to me is on [X](https://x.com/GigaMegaFrog)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
