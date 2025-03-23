@@ -90,7 +90,6 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 // Create grass field
@@ -112,24 +111,23 @@ scene.add(gridHelper);
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(300, 300, 300);
+const directionalLight = new THREE.DirectionalLight();
+directionalLight.position.set(-200, 200, 0);
 directionalLight.castShadow = true;
 directionalLight.shadow.mapSize.width = 2048;
 directionalLight.shadow.mapSize.height = 2048;
-directionalLight.shadow.camera.near = 0.5;
-directionalLight.shadow.camera.far = 2000;
-directionalLight.shadow.camera.left = -1000;
-directionalLight.shadow.camera.right = 1000;
-directionalLight.shadow.camera.top = 1000;
-directionalLight.shadow.camera.bottom = -1000;
+directionalLight.shadow.camera.near = 50;
+directionalLight.shadow.camera.far = 400;
+directionalLight.shadow.camera.left = -400;
+directionalLight.shadow.camera.right = 400;
+directionalLight.shadow.camera.top = 400;
+directionalLight.shadow.camera.bottom = -400;
+directionalLight.target.updateMatrixWorld();
 
-// Create a target for the directional light
 const lightTarget = new THREE.Object3D();
-lightTarget.position.set(0, 0, 300);
+lightTarget.position.copy(player.position);
 scene.add(lightTarget);
 directionalLight.target = lightTarget;
-directionalLight.target.updateMatrixWorld();
 
 scene.add(directionalLight);
 
@@ -237,6 +235,11 @@ function animate() {
 
     camera.position.x += (targetX - camera.position.x) * CAMERA_LERP_FACTOR;
     camera.position.z += (targetZ - camera.position.z) * CAMERA_LERP_FACTOR;
+
+    // Update directional light position to follow player
+    directionalLight.position.x = player.position.x -200;
+    directionalLight.position.z = player.position.z;
+    directionalLight.target.position.set(player.position.x, 0, player.position.z);
 
     renderer.render(scene, camera);
 }
