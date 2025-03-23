@@ -1,34 +1,31 @@
-function createCamera() {
+function updateCameraFrustum(camera) {
     const size = 300;
     const viewRatio = window.innerWidth / window.innerHeight;
     const width = viewRatio < 1 ? size : size * viewRatio;
     const height = viewRatio < 1 ? size / viewRatio : size;
 
+    camera.left = width / -2;
+    camera.right = width / 2;
+    camera.top = height / 2;
+    camera.bottom = height / -2;
+    camera.updateProjectionMatrix();
+}
+
+function createCamera() {
     const camera = new THREE.OrthographicCamera(
-        width / -2, // left
-        width / 2, // right
-        height / 2, // top
-        height / -2, // bottom
+        0, // left (will be updated)
+        0, // right (will be updated)
+        0, // top (will be updated)
+        0, // bottom (will be updated)
         100, // near
         900 // far
     );
 
-    // camera.up.set(0, 0, 1);
     camera.position.set(300, 300, 300);
     camera.lookAt(0, 0, 0);
-
-    window.addEventListener('resize', () => {
-        const viewRatio = window.innerWidth / window.innerHeight;
-        const width = viewRatio < 1 ? size : size * viewRatio;
-        const height = viewRatio < 1 ? size / viewRatio : size;
-
-        camera.left = width / -2, // left
-        camera.right = width / 2, // right
-        camera.top = height / 2, // top
-        camera.bottom = height / -2, // bottom
-
-        camera.updateProjectionMatrix();
-    });
+    
+    // Initialize camera frustum
+    updateCameraFrustum(camera);
 
     return camera;
 }
@@ -91,6 +88,16 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
+
+// Handle window resize
+window.addEventListener('resize', () => {
+    // Update renderer size
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Update camera aspect ratio and frustum
+    updateCameraFrustum(camera);
+});
 
 // Create grass field
 const grassField = createGrass();
