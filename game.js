@@ -129,6 +129,9 @@ lightTarget.position.copy(player.position);
 scene.add(lightTarget);
 directionalLight.target = lightTarget;
 
+const ambientLight2 = new THREE.AmbientLight(0xffffff, 0.3);
+scene.add(ambientLight2);
+
 scene.add(directionalLight);
 
 // Keyboard controls and movement queue
