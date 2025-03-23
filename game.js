@@ -46,10 +46,17 @@ function createPlayer() {
     const hat = new THREE.Mesh(hatGeometry, hatMaterial);
     hat.position.set(0, 20, 0); // Position on top of player
 
-    // Create group to hold both meshes
+    // Create yellow beak in front
+    const beakGeometry = new THREE.BoxGeometry(2, 2, 2);
+    const beakMaterial = new THREE.MeshLambertMaterial({ color: "orange" });
+    const beak = new THREE.Mesh(beakGeometry, beakMaterial);
+    beak.position.set(0, 12, 7.5); // Position on front of player
+
+    // Create group to hold all meshes
     const player = new THREE.Group();
     player.add(playerBody);
     player.add(hat);
+    player.add(beak);
 
     return player;
 }
