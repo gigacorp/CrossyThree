@@ -80,7 +80,8 @@ let moveZ = 0;
 // Keyboard controls and movement queue
 const moveQueue = [];
 const MOVE_DURATION = 100; // 0.1 second
-const MOVE_DISTANCE = 15; // 15 units per move
+const MOVE_DISTANCE = 30; // 15 units per move
+const JUMP_HEIGHT = 10; // Maximum jump height
 let isMoving = false;
 
 document.addEventListener('keydown', (e) => {
@@ -122,7 +123,11 @@ function animate() {
         
         if (!isMoving) {
             currentMove.startTime = Date.now();
-            currentMove.startPos = {x: player.position.x, z: player.position.z};
+            currentMove.startPos = {
+                x: player.position.x,
+                y: player.position.y,
+                z: player.position.z
+            };
             currentMove.targetPos = {
                 x: currentMove.startPos.x + currentMove.movement.x,
                 z: currentMove.startPos.z + currentMove.movement.z
@@ -138,9 +143,14 @@ function animate() {
         player.position.x = currentMove.startPos.x + (currentMove.targetPos.x - currentMove.startPos.x) * progress;
         player.position.z = currentMove.startPos.z + (currentMove.targetPos.z - currentMove.startPos.z) * progress;
 
+        // Add jumping motion using sine wave
+        player.position.y = currentMove.startPos.y + Math.sin(progress * Math.PI) * JUMP_HEIGHT;
+
         if (progress === 1) {
             moveQueue.shift();
             isMoving = false;
+            // Reset y position when movement is complete
+            player.position.y = currentMove.startPos.y;
         }
     }
 
