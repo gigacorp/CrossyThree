@@ -27,3 +27,7 @@ I'm a solo developer making this thing. The best way to reach out to me is on [X
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Play Now!
+
+Try it out at [https://gigacorp.github.io/CrossyThree/](https://gigacorp.github.io/CrossyThree/)
