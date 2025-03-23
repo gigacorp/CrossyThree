@@ -77,31 +77,72 @@ const moveSpeed = 15;
 let moveX = 0;
 let moveZ = 0;
 
-// Keyboard controls
-const keys = {};
+// Keyboard controls and movement queue
+const moveQueue = [];
+const MOVE_DURATION = 100; // 0.1 second
+const MOVE_DISTANCE = 15; // 15 units per move
+let isMoving = false;
+
 document.addEventListener('keydown', (e) => {
-    keys[e.key] = true;
-});
-document.addEventListener('keyup', (e) => {
-    keys[e.key] = false;
+    if (e.repeat) return; // Prevent key repeat
+    
+    let movement = null;
+    switch(e.key) {
+        case 'ArrowLeft':
+            movement = {x: -MOVE_DISTANCE, z: 0};
+            break;
+        case 'ArrowRight':
+            movement = {x: MOVE_DISTANCE, z: 0};
+            break;
+        case 'ArrowUp':
+            movement = {x: 0, z: -MOVE_DISTANCE};
+            break;
+        case 'ArrowDown':
+            movement = {x: 0, z: MOVE_DISTANCE};
+            break;
+    }
+    
+    if (movement) {
+        moveQueue.push({
+            movement,
+            startPos: null,
+            targetPos: null,
+            startTime: null
+        });
+    }
 });
 
 // Animation loop
 function animate() {
     requestAnimationFrame(animate);
 
-    // Handle movement
-    if (keys['ArrowLeft']) moveX = -moveSpeed;
-    else if (keys['ArrowRight']) moveX = moveSpeed;
-    else moveX = 0;
+    // Process movement queue
+    if (moveQueue.length > 0) {
+        const currentMove = moveQueue[0];
+        
+        if (!isMoving) {
+            currentMove.startTime = Date.now();
+            currentMove.startPos = {x: player.position.x, z: player.position.z};
+            currentMove.targetPos = {
+                x: currentMove.startPos.x + currentMove.movement.x,
+                z: currentMove.startPos.z + currentMove.movement.z
+            };
+            isMoving = true;
+            console.log("Starting new move:", currentMove);
+        }
 
-    if (keys['ArrowUp']) moveZ = -moveSpeed;
-    else if (keys['ArrowDown']) moveZ = moveSpeed;
-    else moveZ = 0;
+        const elapsed = Date.now() - currentMove.startTime;
+        const progress = Math.min(elapsed / MOVE_DURATION, 1);
 
-    // Update player position
-    player.position.x += moveX;
-    player.position.z += moveZ;
+        // Lerp between start and target positions
+        player.position.x = currentMove.startPos.x + (currentMove.targetPos.x - currentMove.startPos.x) * progress;
+        player.position.z = currentMove.startPos.z + (currentMove.targetPos.z - currentMove.startPos.z) * progress;
+
+        if (progress === 1) {
+            moveQueue.shift();
+            isMoving = false;
+        }
+    }
 
     renderer.render(scene, camera);
 }
