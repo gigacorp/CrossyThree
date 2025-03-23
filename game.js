@@ -141,7 +141,8 @@ const JUMP_HEIGHT = 10; // Maximum jump height
 let isMoving = false;
 
 // Camera setup
-const CAMERA_LERP_FACTOR = 0.015 // Lower = smoother but more lag, higher = faster but less smooth
+const CAMERA_LERP_FACTOR = 0.015; // Lower = smoother but more lag, higher = faster but less smooth
+const ROTATION_LERP_FACTOR = 0.3; // Much faster than movement for snappy rotation
 
 document.addEventListener('keydown', (e) => {
     if (e.repeat) return; // Prevent key repeat
@@ -193,9 +194,9 @@ function animate() {
             };
             isMoving = true;
 
-            // Calculate rotation angle based on movement direction
-            const angle = Math.atan2(currentMove.movement.x, currentMove.movement.z);
-            player.rotation.y = angle;
+            // Calculate target rotation angle based on movement direction
+            const targetAngle = Math.atan2(currentMove.movement.x, currentMove.movement.z);
+            currentMove.targetRotation = targetAngle;
             
             console.log("Starting new move:", currentMove);
         }
@@ -210,11 +211,23 @@ function animate() {
         // Add jumping motion using sine wave
         player.position.y = currentMove.startPos.y + Math.sin(progress * Math.PI) * JUMP_HEIGHT;
 
+        // Smooth rotation animation
+        const currentRotation = player.rotation.y;
+        const targetRotation = currentMove.targetRotation;
+        
+        // Handle rotation wrapping around 2π
+        let rotationDiff = targetRotation - currentRotation;
+        if (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
+        if (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
+        
+        player.rotation.y += rotationDiff * ROTATION_LERP_FACTOR;
+
         if (progress === 1) {
             moveQueue.shift();
             isMoving = false;
             // Reset y position when movement is complete
             player.position.y = currentMove.startPos.y;
+            player.rotation.y = currentMove.targetRotation;
         }
     }
 
