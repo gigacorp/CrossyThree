@@ -141,7 +141,7 @@ scene.add(ambientLight2);
 
 scene.add(directionalLight);
 
-// Keyboard controls and movement queue
+// Movement queue
 const moveQueue = [];
 const MOVE_DURATION = 100; // 0.1 second
 const MOVE_DISTANCE = 30; // 15 units per move
@@ -152,6 +152,27 @@ let isMoving = false;
 const CAMERA_LERP_FACTOR = 0.015; // Lower = smoother but more lag, higher = faster but less smooth
 const ROTATION_LERP_FACTOR = 0.3; // Much faster than movement for snappy rotation
 
+// Touch controls
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartTime = 0;
+const SWIPE_THRESHOLD = 50; // Minimum distance for swipe
+const TAP_THRESHOLD = 200; // Maximum time for tap (ms)
+
+// Function to queue a movement
+function queueMove(movement) {
+    moveQueue.push({
+        movement: {
+            x: movement.x * MOVE_DISTANCE,
+            z: movement.z * MOVE_DISTANCE
+        },
+        startPos: null,
+        targetPos: null,
+        startTime: null
+    });
+}
+
+// Handle keyboard controls
 document.addEventListener('keydown', (e) => {
     if (e.repeat) return; // Prevent key repeat
     
@@ -172,13 +193,60 @@ document.addEventListener('keydown', (e) => {
     }
     
     if (movement) {
-        moveQueue.push({
-            movement,
-            startPos: null,
-            targetPos: null,
-            startTime: null
+        queueMove({
+            x: movement.x / MOVE_DISTANCE,
+            z: movement.z / MOVE_DISTANCE
         });
     }
+});
+
+// Handle touch start
+document.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchStartTime = Date.now();
+    e.preventDefault(); // Prevent scrolling
+});
+
+// Handle touch move
+document.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // Prevent scrolling
+});
+
+// Handle touch end
+document.addEventListener('touchend', (e) => {
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const touchEndTime = Date.now();
+    
+    const deltaX = touchEndX - touchStartX;
+    const deltaY = touchEndY - touchStartY;
+    const deltaTime = touchEndTime - touchStartTime;
+    
+    // Check if it's a swipe
+    if (Math.abs(deltaX) > SWIPE_THRESHOLD || Math.abs(deltaY) > SWIPE_THRESHOLD) {
+        // Determine swipe direction
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            // Horizontal swipe
+            if (deltaX > 0) {
+                queueMove({ x: 1, z: 0 }); // Right
+            } else {
+                queueMove({ x: -1, z: 0 }); // Left
+            }
+        } else {
+            // Vertical swipe
+            if (deltaY > 0) {
+                queueMove({ x: 0, z: 1 }); // Down
+            } else {
+                queueMove({ x: 0, z: -1 }); // Up
+            }
+        }
+    } else if (deltaTime < TAP_THRESHOLD) {
+        // It's a tap, always move up
+        queueMove({ x: 0, z: -1 }); // Up
+    }
+    
+    e.preventDefault(); // Prevent scrolling
 });
 
 // Animation loop
