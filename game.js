@@ -38,18 +38,24 @@ function createPlayer() {
     const playerGeometry = new THREE.BoxGeometry(15, 20, 15);
     const playerMaterial = new THREE.MeshLambertMaterial({ color: "white" });
     const playerBody = new THREE.Mesh(playerGeometry, playerMaterial);
+    playerBody.castShadow = true;
+    playerBody.receiveShadow = true;
     playerBody.position.set(0, 10, 0);
 
     // Create small red box on top
     const hatGeometry = new THREE.BoxGeometry(4, 4, 8);
     const hatMaterial = new THREE.MeshLambertMaterial({ color: "red" });
     const hat = new THREE.Mesh(hatGeometry, hatMaterial);
+    hat.castShadow = true;
+    hat.receiveShadow = true;
     hat.position.set(0, 20, 0); // Position on top of player
 
     // Create yellow beak in front
     const beakGeometry = new THREE.BoxGeometry(2, 2, 2);
     const beakMaterial = new THREE.MeshLambertMaterial({ color: "orange" });
     const beak = new THREE.Mesh(beakGeometry, beakMaterial);
+    beak.castShadow = true;
+    beak.receiveShadow = true;
     beak.position.set(0, 12, 7.5); // Position on front of player
 
     // Create group to hold all meshes
@@ -70,6 +76,8 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 // Player setup
@@ -81,16 +89,24 @@ const gridSize = 1500; // Much larger overall size
 const gridDivisions = 100; // More divisions for detail
 const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x444444, 0x888888);
 gridHelper.scale.set(2, 2, 2); // Scale down the grid to make each cell 15x15
-
 scene.add(gridHelper);
 
 // Lighting
-const ambientLight = new THREE.AmbientLight();
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight();
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 directionalLight.position.set(300, 300, 300);
 directionalLight.target = player;
+directionalLight.castShadow = true;
+directionalLight.shadow.mapSize.width = 2048;
+directionalLight.shadow.mapSize.height = 2048;
+directionalLight.shadow.camera.near = 0.5;
+directionalLight.shadow.camera.far = 1000;
+directionalLight.shadow.camera.left = -200;
+directionalLight.shadow.camera.right = 200;
+directionalLight.shadow.camera.top = 200;
+directionalLight.shadow.camera.bottom = -200;
 scene.add(directionalLight);
 
 // Movement variables - adjusted to match new scale
