@@ -33,6 +33,27 @@ function createCamera() {
     return camera;
 }
 
+function createPlayer() {
+    // Create main player body (white box)
+    const playerGeometry = new THREE.BoxGeometry(15, 20, 15);
+    const playerMaterial = new THREE.MeshLambertMaterial({ color: "white" });
+    const playerBody = new THREE.Mesh(playerGeometry, playerMaterial);
+    playerBody.position.set(0, 10, 0);
+
+    // Create small red box on top
+    const hatGeometry = new THREE.BoxGeometry(4, 4, 8);
+    const hatMaterial = new THREE.MeshLambertMaterial({ color: "red" });
+    const hat = new THREE.Mesh(hatGeometry, hatMaterial);
+    hat.position.set(0, 20, 0); // Position on top of player
+
+    // Create group to hold both meshes
+    const player = new THREE.Group();
+    player.add(playerBody);
+    player.add(hat);
+
+    return player;
+}
+
 // Scene setup
 const scene = new THREE.Scene();
 const camera = createCamera();
@@ -44,15 +65,8 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Camera position - moved closer and angled
-// camera.position.set(10, 8, 10);
-// camera.lookAt(0, 0, 0);
-
-// Player setup - made much larger
-const playerGeometry = new THREE.BoxGeometry(15, 20, 15);
-const playerMaterial = new THREE.MeshLambertMaterial({ color: "white" });
-const player = new THREE.Mesh(playerGeometry, playerMaterial);
-player.position.set(0, 10, 0);
+// Player setup
+const player = createPlayer();
 scene.add(player);
 
 // Grid setup - made much larger and more visible
