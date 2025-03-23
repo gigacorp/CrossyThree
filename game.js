@@ -140,6 +140,9 @@ const MOVE_DISTANCE = 30; // 15 units per move
 const JUMP_HEIGHT = 10; // Maximum jump height
 let isMoving = false;
 
+// Camera setup
+const CAMERA_LERP_FACTOR = 0.015 // Lower = smoother but more lag, higher = faster but less smooth
+
 document.addEventListener('keydown', (e) => {
     if (e.repeat) return; // Prevent key repeat
     
@@ -214,6 +217,13 @@ function animate() {
             player.position.y = currentMove.startPos.y;
         }
     }
+
+    // Smooth camera following
+    const targetX = player.position.x + 300;
+    const targetZ = player.position.z + 300;
+
+    camera.position.x += (targetX - camera.position.x) * CAMERA_LERP_FACTOR;
+    camera.position.z += (targetZ - camera.position.z) * CAMERA_LERP_FACTOR;
 
     renderer.render(scene, camera);
 }
