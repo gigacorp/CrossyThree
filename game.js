@@ -147,6 +147,11 @@ function animate() {
                 z: currentMove.startPos.z + currentMove.movement.z
             };
             isMoving = true;
+
+            // Calculate rotation angle based on movement direction
+            const angle = Math.atan2(currentMove.movement.x, currentMove.movement.z);
+            player.rotation.y = angle;
+            
             console.log("Starting new move:", currentMove);
         }
 
