@@ -162,7 +162,9 @@ const SWIPE_THRESHOLD = 50; // Minimum distance for swipe
 const TAP_THRESHOLD = 200; // Maximum time for tap (ms)
 
 // Multiplayer setup
-const client = new window.Colyseus.Client('ws://localhost:3000');
+const client = new window.Colyseus.Client(window.location.protocol === 'https:' 
+    ? 'wss://crossy-three-multiplayer.appspot.com'
+    : 'ws://localhost:3000');
 let room = null;
 let playerId = null;
 const otherPlayers = new Map();

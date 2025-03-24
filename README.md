@@ -1,22 +1,23 @@
-# CrossyThree
+# CrossyThree Multiplayer
 
-ThreeJS-based, Crossy Road-inspired, vibe coded thing
+ThreeJS/Colyseus-based, Crossy Road-inspired, vibe coded thing
 
 ## How to Run
 
 1. Clone the repository
-2. Open index.html in a web browser
-3. Use arrow keys to control the player and start hopping around!
+2. Run `node server.js` in your terminal (requires Node.js to be installed)
+3. Use arrow keys to control your player and start hopping around!
+4. Open additional browser windows to add more players to the game - each window will control a different player
 
 ## Tech Stack
 
 - ThreeJS
-- Frontend-only implementation using index.html and game.js files
-- ThreeJS loaded via CDN
+- Colyseus
+- Google App Engine
 
 ## Credits
 
-- Inspired by Crossy Road by (Hipster Whale)[https://www.hipsterwhale.com]
+- Inspired by Crossy Road by [Hipster Whale](https://www.hipsterwhale.com)
 - This tutorial was helpful: https://www.youtube.com/watch?v=vNr3_hQ3Bws
 - Made using [Cursor](https://cursor.sh). Almost all code in this project is AI-generated, with minimal human intervention.
 
@@ -30,4 +31,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Play Now!
 
-Try it out at [https://gigacorp.github.io/CrossyThree/](https://gigacorp.github.io/CrossyThree/)
+Try it out at [https://crossy-three-multiplayer.lm.r.appspot.com](https://crossy-three-multiplayer.lm.r.appspot.com)
