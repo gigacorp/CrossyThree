@@ -183,7 +183,7 @@ async function connectToServer() {
         // Listen for player move commands
         room.onMessage('playerMoveCommand', (data) => {
             if (data.playerId !== playerId) {
-                queueOtherPlayerMove(data.playerId, data.movement);
+                queueOtherPlayerMove(data.playerId, data.movement, data.startPos, data.targetPos);
             }
         });
 
@@ -240,7 +240,7 @@ function updatePlayerCount(count) {
     document.getElementById('playerCount').textContent = `Players: ${count}`;
 }
 
-function queueOtherPlayerMove(playerId, movement) {
+function queueOtherPlayerMove(playerId, movement, startPos, targetPos) {
     let otherPlayer = otherPlayers.get(playerId);
     if (!otherPlayer) {
         otherPlayer = createPlayer();
@@ -256,36 +256,46 @@ function queueOtherPlayerMove(playerId, movement) {
 
     // Add the move command to the queue
     moveQueue.push({
-        movement: {
-            x: movement.x * MOVE_DISTANCE,
-            z: movement.z * MOVE_DISTANCE
-        },
-        startPos: null,
-        targetPos: null,
+        movement,
+        startPos,
+        targetPos,
         startTime: null
     });
 }
 
 // Modify the queueMove function to send movement to server
 function queueMove(movement) {
+    // Use the target position of the current move as the start position for the next move
+    const startPos = moveQueue.length > 0 ? moveQueue[moveQueue.length - 1].targetPos : {
+        x: player.position.x,
+        z: player.position.z
+    };
+    
+    const targetPos = {
+        x: startPos.x + movement.x * MOVE_DISTANCE,
+        z: startPos.z + movement.z * MOVE_DISTANCE
+    };
+
     moveQueue.push({
         movement: {
             x: movement.x * MOVE_DISTANCE,
             z: movement.z * MOVE_DISTANCE
         },
-        startPos: null,
-        targetPos: null,
+        startPos,
+        targetPos,
         startTime: null
     });
 
     // Send movement to server
     if (room) {
-        // Send the movement command to the server
+        // Send the movement command to the server with positions
         room.send('move', {
             movement: {
                 x: movement.x,
                 z: movement.z
-            }
+            },
+            startPos,
+            targetPos
         });
     }
 }
@@ -410,16 +420,7 @@ function processMoveQueue(queue, targetPlayer) {
     
     if (!currentMove.startTime) {
         currentMove.startTime = Date.now();
-        currentMove.startPos = {
-            x: targetPlayer.position.x,
-            y: targetPlayer.position.y,
-            z: targetPlayer.position.z
-        };
-        currentMove.targetPos = {
-            x: currentMove.startPos.x + currentMove.movement.x,
-            z: currentMove.startPos.z + currentMove.movement.z
-        };
-
+        
         // Calculate target rotation angle based on movement direction
         const targetAngle = Math.atan2(currentMove.movement.x, currentMove.movement.z);
         currentMove.targetRotation = targetAngle;
@@ -433,7 +434,7 @@ function processMoveQueue(queue, targetPlayer) {
     targetPlayer.position.z = currentMove.startPos.z + (currentMove.targetPos.z - currentMove.startPos.z) * progress;
 
     // Add jumping motion using sine wave
-    targetPlayer.position.y = currentMove.startPos.y + Math.sin(progress * Math.PI) * JUMP_HEIGHT;
+    targetPlayer.position.y = Math.sin(progress * Math.PI) * JUMP_HEIGHT;
 
     // Smooth rotation animation
     const currentRotation = targetPlayer.rotation.y;
@@ -449,7 +450,7 @@ function processMoveQueue(queue, targetPlayer) {
     if (progress === 1) {
         queue.shift();
         // Reset y position when movement is complete
-        targetPlayer.position.y = currentMove.startPos.y;
+        targetPlayer.position.y = 0;
         targetPlayer.rotation.y = currentMove.targetRotation;
     }
 }

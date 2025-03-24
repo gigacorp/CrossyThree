@@ -46,10 +46,12 @@ class GameRoom extends Room {
         this.setState(new GameState());
         this.onMessage('move', (client, message) => {
             const playerId = client.sessionId;
-            // Broadcast the move command to all other clients
+            // Broadcast the move command to all other clients with positions
             this.broadcast('playerMoveCommand', {
                 playerId,
-                movement: message.movement
+                movement: message.movement,
+                startPos: message.startPos,
+                targetPos: message.targetPos
             });
         });
     }
