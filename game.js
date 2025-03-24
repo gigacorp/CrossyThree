@@ -1,3 +1,5 @@
+import * as THREE from './node_modules/three/build/three.module.min.js';
+
 function updateCameraFrustum(camera) {
     const size = 300;
     const viewRatio = window.innerWidth / window.innerHeight;
@@ -159,8 +161,100 @@ let touchStartTime = 0;
 const SWIPE_THRESHOLD = 50; // Minimum distance for swipe
 const TAP_THRESHOLD = 200; // Maximum time for tap (ms)
 
-// Function to queue a movement
-function queueMove(movement) {
+// Multiplayer setup
+const client = new window.Colyseus.Client('ws://localhost:3000');
+let room = null;
+let playerId = null;
+const otherPlayers = new Map();
+const otherPlayersMoveQueues = new Map();
+
+// Connect to server
+async function connectToServer() {
+    try {
+        room = await client.joinOrCreate('game_room');
+        console.log('Connected to room:', room);
+        
+        // Listen for player ID
+        room.onMessage('playerId', (id) => {
+            playerId = id;
+            console.log('Received player ID:', playerId);
+        });
+
+        // Listen for player move commands
+        room.onMessage('playerMoveCommand', (data) => {
+            if (data.playerId !== playerId) {
+                queueOtherPlayerMove(data.playerId, data.movement);
+            }
+        });
+
+        // Listen for players leaving
+        room.onMessage('playerLeft', (playerId) => {
+            removeOtherPlayer(playerId);
+        });
+
+        // Listen for state changes
+        room.onStateChange((state) => {
+            updatePlayerCount(state.playerCount);
+            
+            // Only process other players if we have our playerId
+            if (playerId) {
+                // Create other players that are already in the room
+                state.players.forEach((player, id) => {
+                    if (id !== playerId) {
+                        updateOtherPlayer(id, {
+                            x: player.x,
+                            y: player.y,
+                            z: player.z,
+                            rotation: player.rotation
+                        });
+                    }
+                });
+            }
+        });
+
+    } catch (error) {
+        console.error('Failed to connect to server:', error);
+    }
+}
+
+function updateOtherPlayer(playerId, position) {
+    let otherPlayer = otherPlayers.get(playerId);
+    if (!otherPlayer) {
+        otherPlayer = createPlayer();
+        scene.add(otherPlayer);
+        otherPlayers.set(playerId, otherPlayer);
+    }
+    otherPlayer.position.set(position.x, position.y, position.z);
+    otherPlayer.rotation.y = position.rotation;
+}
+
+function removeOtherPlayer(playerId) {
+    const otherPlayer = otherPlayers.get(playerId);
+    if (otherPlayer) {
+        scene.remove(otherPlayer);
+        otherPlayers.delete(playerId);
+    }
+}
+
+function updatePlayerCount(count) {
+    document.getElementById('playerCount').textContent = `Players: ${count}`;
+}
+
+function queueOtherPlayerMove(playerId, movement) {
+    let otherPlayer = otherPlayers.get(playerId);
+    if (!otherPlayer) {
+        otherPlayer = createPlayer();
+        scene.add(otherPlayer);
+        otherPlayers.set(playerId, otherPlayer);
+    }
+
+    // Initialize or get the move queue for this player
+    if (!otherPlayersMoveQueues.has(playerId)) {
+        otherPlayersMoveQueues.set(playerId, []);
+    }
+    const moveQueue = otherPlayersMoveQueues.get(playerId);
+
+    // Add the move command to the queue
     moveQueue.push({
         movement: {
             x: movement.x * MOVE_DISTANCE,
@@ -171,6 +265,33 @@ function queueMove(movement) {
         startTime: null
     });
 }
+
+// Modify the queueMove function to send movement to server
+function queueMove(movement) {
+    moveQueue.push({
+        movement: {
+            x: movement.x * MOVE_DISTANCE,
+            z: movement.z * MOVE_DISTANCE
+        },
+        startPos: null,
+        targetPos: null,
+        startTime: null
+    });
+
+    // Send movement to server
+    if (room) {
+        // Send the movement command to the server
+        room.send('move', {
+            movement: {
+                x: movement.x,
+                z: movement.z
+            }
+        });
+    }
+}
+
+// Connect to server when the page loads
+connectToServer();
 
 // Handle keyboard controls
 document.addEventListener('keydown', (e) => {
@@ -253,59 +374,20 @@ document.addEventListener('touchend', (e) => {
 function animate() {
     requestAnimationFrame(animate);
 
-    // Process movement queue
+    // Process local player movement queue
     if (moveQueue.length > 0) {
-        const currentMove = moveQueue[0];
-        
-        if (!isMoving) {
-            currentMove.startTime = Date.now();
-            currentMove.startPos = {
-                x: player.position.x,
-                y: player.position.y,
-                z: player.position.z
-            };
-            currentMove.targetPos = {
-                x: currentMove.startPos.x + currentMove.movement.x,
-                z: currentMove.startPos.z + currentMove.movement.z
-            };
-            isMoving = true;
-
-            // Calculate target rotation angle based on movement direction
-            const targetAngle = Math.atan2(currentMove.movement.x, currentMove.movement.z);
-            currentMove.targetRotation = targetAngle;
-            
-            console.log("Starting new move:", currentMove);
-        }
-
-        const elapsed = Date.now() - currentMove.startTime;
-        const progress = Math.min(elapsed / MOVE_DURATION, 1);
-
-        // Lerp between start and target positions
-        player.position.x = currentMove.startPos.x + (currentMove.targetPos.x - currentMove.startPos.x) * progress;
-        player.position.z = currentMove.startPos.z + (currentMove.targetPos.z - currentMove.startPos.z) * progress;
-
-        // Add jumping motion using sine wave
-        player.position.y = currentMove.startPos.y + Math.sin(progress * Math.PI) * JUMP_HEIGHT;
-
-        // Smooth rotation animation
-        const currentRotation = player.rotation.y;
-        const targetRotation = currentMove.targetRotation;
-        
-        // Handle rotation wrapping around 2π
-        let rotationDiff = targetRotation - currentRotation;
-        if (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
-        if (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
-        
-        player.rotation.y += rotationDiff * ROTATION_LERP_FACTOR;
-
-        if (progress === 1) {
-            moveQueue.shift();
-            isMoving = false;
-            // Reset y position when movement is complete
-            player.position.y = currentMove.startPos.y;
-            player.rotation.y = currentMove.targetRotation;
-        }
+        processMoveQueue(moveQueue, player);
     }
+
+    // Process other players' movement queues
+    otherPlayersMoveQueues.forEach((queue, playerId) => {
+        if (queue.length > 0) {
+            const otherPlayer = otherPlayers.get(playerId);
+            if (otherPlayer) {
+                processMoveQueue(queue, otherPlayer);
+            }
+        }
+    });
 
     // Smooth camera following
     const targetX = player.position.x + 300;
@@ -320,6 +402,56 @@ function animate() {
     directionalLight.target.position.set(player.position.x, 0, player.position.z);
 
     renderer.render(scene, camera);
+}
+
+// Extract move queue processing into a separate function
+function processMoveQueue(queue, targetPlayer) {
+    const currentMove = queue[0];
+    
+    if (!currentMove.startTime) {
+        currentMove.startTime = Date.now();
+        currentMove.startPos = {
+            x: targetPlayer.position.x,
+            y: targetPlayer.position.y,
+            z: targetPlayer.position.z
+        };
+        currentMove.targetPos = {
+            x: currentMove.startPos.x + currentMove.movement.x,
+            z: currentMove.startPos.z + currentMove.movement.z
+        };
+
+        // Calculate target rotation angle based on movement direction
+        const targetAngle = Math.atan2(currentMove.movement.x, currentMove.movement.z);
+        currentMove.targetRotation = targetAngle;
+    }
+
+    const elapsed = Date.now() - currentMove.startTime;
+    const progress = Math.min(elapsed / MOVE_DURATION, 1);
+
+    // Lerp between start and target positions
+    targetPlayer.position.x = currentMove.startPos.x + (currentMove.targetPos.x - currentMove.startPos.x) * progress;
+    targetPlayer.position.z = currentMove.startPos.z + (currentMove.targetPos.z - currentMove.startPos.z) * progress;
+
+    // Add jumping motion using sine wave
+    targetPlayer.position.y = currentMove.startPos.y + Math.sin(progress * Math.PI) * JUMP_HEIGHT;
+
+    // Smooth rotation animation
+    const currentRotation = targetPlayer.rotation.y;
+    const targetRotation = currentMove.targetRotation;
+    
+    // Handle rotation wrapping around 2π
+    let rotationDiff = targetRotation - currentRotation;
+    if (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
+    if (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
+    
+    targetPlayer.rotation.y += rotationDiff * ROTATION_LERP_FACTOR;
+
+    if (progress === 1) {
+        queue.shift();
+        // Reset y position when movement is complete
+        targetPlayer.position.y = currentMove.startPos.y;
+        targetPlayer.rotation.y = currentMove.targetRotation;
+    }
 }
 
 animate(); 

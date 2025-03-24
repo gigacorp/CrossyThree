@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CrossyThree</title>
+    <title>CrossyThree Multiplayer</title>
     <style>
         body {
             margin: 0;
@@ -15,10 +15,20 @@
             display: block;
             cursor: pointer;
         }
+        #playerCount {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="game.js"></script>
+    <div id="playerCount">Players: 0</div>
+    <script src="node_modules/colyseus.js/dist/colyseus.js"></script>
+    <script type="module" src="game.js"></script>
 </body>
 </html> 
