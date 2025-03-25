@@ -1,5 +1,7 @@
 import * as THREE from './node_modules/three/build/three.module.min.js';
 
+const MAP_SIZE = 2000; // Total size of the play field
+const MAP_HALF_SIZE = MAP_SIZE / 2; // Half size for boundary checks
 const CAMERA_OFFSET = new THREE.Vector3(150, 450, 350);
 const CAMERA_LOOK_AT = new THREE.Vector3(0, 0, -75);
 
@@ -76,7 +78,7 @@ function createGrass() {
     
     // Create alternating stripes
     for (let i = -numStripes/2; i < numStripes/2; i++) {
-        const stripeGeometry = new THREE.PlaneGeometry(2000, stripeWidth);
+        const stripeGeometry = new THREE.PlaneGeometry(MAP_SIZE, stripeWidth);
         const stripeMaterial = new THREE.MeshLambertMaterial({ 
             color: i % 2 === 0 ? 0x3a8c3a : 0x4a9c4a, // Alternating shades of green
             side: THREE.DoubleSide
@@ -84,7 +86,8 @@ function createGrass() {
         const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
         stripe.rotation.x = -Math.PI / 2; // Rotate to be horizontal
         stripe.position.y = 0;
-        stripe.position.z = i * stripeWidth; // Position each stripe
+        // Center the stripes by offsetting by half a stripe width
+        stripe.position.z = (i * stripeWidth) + (stripeWidth / 2);
         stripe.receiveShadow = true;
         grassGroup.add(stripe);
     }
@@ -435,6 +438,16 @@ function processMoveQueue(queue, targetPlayer) {
         // Calculate target rotation angle based on movement direction
         const targetAngle = Math.atan2(currentMove.movement.x, currentMove.movement.z);
         currentMove.targetRotation = targetAngle;
+
+        // Check if target position is within bounds
+        const targetX = currentMove.targetPos.x;
+        const targetZ = currentMove.targetPos.z;
+        
+        if (Math.abs(targetX) > MAP_HALF_SIZE || Math.abs(targetZ) > MAP_HALF_SIZE) {
+            // If out of bounds, keep the current position as target
+            currentMove.targetPos = { ...currentMove.startPos };
+            currentMove.movement = { x: 0, z: 0 };
+        }
     }
 
     const elapsed = Date.now() - currentMove.startTime;
