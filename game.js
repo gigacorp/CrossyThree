@@ -70,16 +70,26 @@ function createPlayer() {
 }
 
 function createGrass() {
-    const grassGeometry = new THREE.PlaneGeometry(2000, 2000);
-    const grassMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0x3a8c3a,  // Dark green color
-        side: THREE.DoubleSide
-    });
-    const grassField = new THREE.Mesh(grassGeometry, grassMaterial);
-    grassField.rotation.x = -Math.PI / 2; // Rotate to be horizontal
-    grassField.position.y = 0; // Place at ground level
-    grassField.receiveShadow = true;
-    return grassField;
+    const stripeWidth = 100; // Width of each stripe
+    const numStripes = 20; // Number of stripes in each direction
+    const grassGroup = new THREE.Group();
+    
+    // Create alternating stripes
+    for (let i = -numStripes/2; i < numStripes/2; i++) {
+        const stripeGeometry = new THREE.PlaneGeometry(2000, stripeWidth);
+        const stripeMaterial = new THREE.MeshLambertMaterial({ 
+            color: i % 2 === 0 ? 0x3a8c3a : 0x4a9c4a, // Alternating shades of green
+            side: THREE.DoubleSide
+        });
+        const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
+        stripe.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+        stripe.position.y = 0;
+        stripe.position.z = i * stripeWidth; // Position each stripe
+        stripe.receiveShadow = true;
+        grassGroup.add(stripe);
+    }
+    
+    return grassGroup;
 }
 
 // Scene setup
@@ -111,13 +121,6 @@ scene.add(grassField);
 // Player setup
 const player = createPlayer();
 scene.add(player);
-
-// Grid setup - made much larger and more visible
-const gridSize = 1500; // Much larger overall size
-const gridDivisions = 100; // More divisions for detail
-const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x444444, 0x888888);
-gridHelper.scale.set(2, 2, 2); // Scale down the grid to make each cell 15x15
-scene.add(gridHelper);
 
 // Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
