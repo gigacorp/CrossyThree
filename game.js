@@ -1,7 +1,9 @@
 import * as THREE from './node_modules/three/build/three.module.min.js';
 
-const MAP_SIZE = 2000; // Total size of the play field
-const MAP_HALF_SIZE = MAP_SIZE / 2; // Half size for boundary checks
+const MAP_WIDTH = 1400; // Width of the play field (X direction)
+const MAP_HEIGHT = 2000; // Height of the play field (Z direction)
+const MAP_HALF_WIDTH = MAP_WIDTH / 2; // Half width for boundary checks
+const MAP_HALF_HEIGHT = MAP_HEIGHT / 2; // Half height for boundary checks
 const CAMERA_OFFSET = new THREE.Vector3(150, 450, 350);
 const CAMERA_LOOK_AT = new THREE.Vector3(0, 0, -75);
 
@@ -73,12 +75,12 @@ function createPlayer() {
 
 function createGrass() {
     const stripeWidth = 100; // Width of each stripe
-    const numStripes = 20; // Number of stripes in each direction
+    const numStripes = Math.ceil(MAP_HEIGHT / stripeWidth); // Calculate number of stripes to fill map height
     const grassGroup = new THREE.Group();
     
     // Create alternating stripes
     for (let i = -numStripes/2; i < numStripes/2; i++) {
-        const stripeGeometry = new THREE.PlaneGeometry(MAP_SIZE, stripeWidth);
+        const stripeGeometry = new THREE.PlaneGeometry(MAP_WIDTH, stripeWidth);
         const stripeMaterial = new THREE.MeshLambertMaterial({ 
             color: i % 2 === 0 ? 0x3a8c3a : 0x4a9c4a, // Alternating shades of green
             side: THREE.DoubleSide
@@ -155,7 +157,7 @@ scene.add(directionalLight);
 // Movement queue
 const moveQueue = [];
 const MOVE_DURATION = 100; // 0.1 second
-const MOVE_DISTANCE = 30; // 15 units per move
+const MOVE_DISTANCE = 30; // 30 units per move
 const JUMP_HEIGHT = 10; // Maximum jump height
 let isMoving = false;
 
@@ -443,7 +445,7 @@ function processMoveQueue(queue, targetPlayer) {
         const targetX = currentMove.targetPos.x;
         const targetZ = currentMove.targetPos.z;
         
-        if (Math.abs(targetX) > MAP_HALF_SIZE || Math.abs(targetZ) > MAP_HALF_SIZE) {
+        if (Math.abs(targetX) > MAP_HALF_WIDTH || Math.abs(targetZ) > MAP_HALF_HEIGHT) {
             // If out of bounds, keep the current position as target
             currentMove.targetPos = { ...currentMove.startPos };
             currentMove.movement = { x: 0, z: 0 };
