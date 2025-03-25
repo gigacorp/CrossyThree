@@ -1,7 +1,10 @@
 import * as THREE from './node_modules/three/build/three.module.min.js';
 
+const CAMERA_OFFSET = new THREE.Vector3(150, 450, 350);
+const CAMERA_LOOK_AT = new THREE.Vector3(0, 0, -75);
+
 function updateCameraFrustum(camera) {
-    const size = 300;
+    const size = 300; // Smaller size for tighter view
     const viewRatio = window.innerWidth / window.innerHeight;
     const width = viewRatio < 1 ? size : size * viewRatio;
     const height = viewRatio < 1 ? size / viewRatio : size;
@@ -23,8 +26,8 @@ function createCamera() {
         900 // far
     );
 
-    camera.position.set(300, 300, 300);
-    camera.lookAt(0, 0, 0);
+    camera.position.copy(CAMERA_OFFSET);
+    camera.lookAt(CAMERA_LOOK_AT);
     
     // Initialize camera frustum
     updateCameraFrustum(camera);
@@ -402,8 +405,8 @@ function animate() {
     });
 
     // Smooth camera following
-    const targetX = player.position.x + 300;
-    const targetZ = player.position.z + 300;
+    const targetX = player.position.x + CAMERA_OFFSET.x;
+    const targetZ = player.position.z + CAMERA_OFFSET.z;
 
     camera.position.x += (targetX - camera.position.x) * CAMERA_LERP_FACTOR;
     camera.position.z += (targetZ - camera.position.z) * CAMERA_LERP_FACTOR;
