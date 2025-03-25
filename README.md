@@ -31,4 +31,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Play Now!
 
-Try it out at [https://crossy-three-multiplayer.lm.r.appspot.com](https://crossy-three-multiplayer.lm.r.appspot.com)
+Try it out at [https://crossy-three-multiplayer.lm.r.appspot.com](https://crossy-three-multiplayer.appspot.com)
