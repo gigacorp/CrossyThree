@@ -182,6 +182,9 @@ async function connectToServer() {
         room = await client.joinOrCreate('game_room');
         console.log('Connected to room:', room);
         
+        // Update room ID display
+        document.getElementById('roomId').textContent = `Room: ${room.roomId}`;
+        
         // Listen for player ID
         room.onMessage('playerId', (id) => {
             playerId = id;

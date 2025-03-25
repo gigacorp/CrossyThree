@@ -15,18 +15,24 @@
             display: block;
             cursor: pointer;
         }
-        #playerCount {
+        #roomId, #playerCount {
             position: fixed;
-            top: 20px;
             right: 20px;
             color: white;
             font-family: Arial, sans-serif;
             font-size: 24px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
+        #roomId {
+            top: 20px;
+        }
+        #playerCount {
+            top: 50px;
+        }
     </style>
 </head>
 <body>
+    <div id="roomId">Room: -</div>
     <div id="playerCount">Players: 0</div>
     <script src="node_modules/colyseus.js/dist/colyseus.js"></script>
     <script type="module" src="game.js"></script>
