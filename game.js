@@ -1,101 +1,12 @@
 import * as THREE from './node_modules/three/build/three.module.min.js';
-
-const MAP_WIDTH = 1400; // Width of the play field (X direction)
-const MAP_HEIGHT = 2000; // Height of the play field (Z direction)
-const MAP_HALF_WIDTH = MAP_WIDTH / 2; // Half width for boundary checks
-const MAP_HALF_HEIGHT = MAP_HEIGHT / 2; // Half height for boundary checks
-const CAMERA_OFFSET = new THREE.Vector3(150, 450, 350);
-const CAMERA_LOOK_AT = new THREE.Vector3(0, 0, -75);
-
-function updateCameraFrustum(camera) {
-    const size = 300; // Smaller size for tighter view
-    const viewRatio = window.innerWidth / window.innerHeight;
-    const width = viewRatio < 1 ? size : size * viewRatio;
-    const height = viewRatio < 1 ? size / viewRatio : size;
-
-    camera.left = width / -2;
-    camera.right = width / 2;
-    camera.top = height / 2;
-    camera.bottom = height / -2;
-    camera.updateProjectionMatrix();
-}
-
-function createCamera() {
-    const camera = new THREE.OrthographicCamera(
-        0, // left (will be updated)
-        0, // right (will be updated)
-        0, // top (will be updated)
-        0, // bottom (will be updated)
-        100, // near
-        900 // far
-    );
-
-    camera.position.copy(CAMERA_OFFSET);
-    camera.lookAt(CAMERA_LOOK_AT);
-    
-    // Initialize camera frustum
-    updateCameraFrustum(camera);
-
-    return camera;
-}
-
-function createPlayer() {
-    // Create main player body (white box)
-    const playerGeometry = new THREE.BoxGeometry(15, 20, 15);
-    const playerMaterial = new THREE.MeshLambertMaterial({ color: "white" });
-    const playerBody = new THREE.Mesh(playerGeometry, playerMaterial);
-    playerBody.castShadow = true;
-    playerBody.receiveShadow = true;
-    playerBody.position.set(0, 10, 0);
-
-    // Create small red box on top
-    const hatGeometry = new THREE.BoxGeometry(4, 4, 8);
-    const hatMaterial = new THREE.MeshLambertMaterial({ color: "red" });
-    const hat = new THREE.Mesh(hatGeometry, hatMaterial);
-    hat.castShadow = true;
-    hat.receiveShadow = true;
-    hat.position.set(0, 20, 0); // Position on top of player
-
-    // Create yellow beak in front
-    const beakGeometry = new THREE.BoxGeometry(2, 2, 2);
-    const beakMaterial = new THREE.MeshLambertMaterial({ color: "orange" });
-    const beak = new THREE.Mesh(beakGeometry, beakMaterial);
-    beak.castShadow = true;
-    beak.receiveShadow = true;
-    beak.position.set(0, 12, 7.5); // Position on front of player
-
-    // Create group to hold all meshes
-    const player = new THREE.Group();
-    player.add(playerBody);
-    player.add(hat);
-    player.add(beak);
-
-    return player;
-}
-
-function createGrass() {
-    const stripeWidth = 100; // Width of each stripe
-    const numStripes = Math.ceil(MAP_HEIGHT / stripeWidth); // Calculate number of stripes to fill map height
-    const grassGroup = new THREE.Group();
-    
-    // Create alternating stripes
-    for (let i = -numStripes/2; i < numStripes/2; i++) {
-        const stripeGeometry = new THREE.PlaneGeometry(MAP_WIDTH, stripeWidth);
-        const stripeMaterial = new THREE.MeshLambertMaterial({ 
-            color: i % 2 === 0 ? 0x3a8c3a : 0x4a9c4a, // Alternating shades of green
-            side: THREE.DoubleSide
-        });
-        const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
-        stripe.rotation.x = -Math.PI / 2; // Rotate to be horizontal
-        stripe.position.y = 0;
-        // Center the stripes by offsetting by half a stripe width
-        stripe.position.z = (i * stripeWidth) + (stripeWidth / 2);
-        stripe.receiveShadow = true;
-        grassGroup.add(stripe);
-    }
-    
-    return grassGroup;
-}
+import { createCamera, updateCameraFrustum, updateCameraPosition } from './camera.js';
+import { createPlayer, processMoveQueue } from './player.js';
+import { createGrass } from './grass.js';
+import { 
+    MAP_WIDTH, MAP_HEIGHT, MAP_HALF_WIDTH, MAP_HALF_HEIGHT,
+    MOVE_DURATION, MOVE_DISTANCE, JUMP_HEIGHT,
+    SWIPE_THRESHOLD, TAP_THRESHOLD
+} from './constants.js';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -156,21 +67,12 @@ scene.add(directionalLight);
 
 // Movement queue
 const moveQueue = [];
-const MOVE_DURATION = 100; // 0.1 second
-const MOVE_DISTANCE = 30; // 30 units per move
-const JUMP_HEIGHT = 10; // Maximum jump height
 let isMoving = false;
-
-// Camera setup
-const CAMERA_LERP_FACTOR = 0.015; // Lower = smoother but more lag, higher = faster but less smooth
-const ROTATION_LERP_FACTOR = 0.3; // Much faster than movement for snappy rotation
 
 // Touch controls
 let touchStartX = 0;
 let touchStartY = 0;
 let touchStartTime = 0;
-const SWIPE_THRESHOLD = 50; // Minimum distance for swipe
-const TAP_THRESHOLD = 200; // Maximum time for tap (ms)
 
 // Multiplayer setup
 const client = new window.Colyseus.Client(window.location.protocol === 'https:' 
@@ -402,7 +304,10 @@ function animate() {
 
     // Process local player movement queue
     if (moveQueue.length > 0) {
-        processMoveQueue(moveQueue, player);
+        processMoveQueue(moveQueue, player, {
+            moveDuration: MOVE_DURATION,
+            jumpHeight: JUMP_HEIGHT
+        });
     }
 
     // Process other players' movement queues
@@ -410,17 +315,16 @@ function animate() {
         if (queue.length > 0) {
             const otherPlayer = otherPlayers.get(playerId);
             if (otherPlayer) {
-                processMoveQueue(queue, otherPlayer);
+                processMoveQueue(queue, otherPlayer, {
+                    moveDuration: MOVE_DURATION,
+                    jumpHeight: JUMP_HEIGHT
+                });
             }
         }
     });
 
-    // Smooth camera following
-    const targetX = player.position.x + CAMERA_OFFSET.x;
-    const targetZ = player.position.z + CAMERA_OFFSET.z;
-
-    camera.position.x += (targetX - camera.position.x) * CAMERA_LERP_FACTOR;
-    camera.position.z += (targetZ - camera.position.z) * CAMERA_LERP_FACTOR;
+    // Update camera position
+    updateCameraPosition(camera, player.position);
 
     // Update directional light position to follow player
     directionalLight.position.x = player.position.x -200;
@@ -428,57 +332,6 @@ function animate() {
     directionalLight.target.position.set(player.position.x, 0, player.position.z);
 
     renderer.render(scene, camera);
-}
-
-// Extract move queue processing into a separate function
-function processMoveQueue(queue, targetPlayer) {
-    const currentMove = queue[0];
-    
-    if (!currentMove.startTime) {
-        currentMove.startTime = Date.now();
-        
-        // Calculate target rotation angle based on movement direction
-        const targetAngle = Math.atan2(currentMove.movement.x, currentMove.movement.z);
-        currentMove.targetRotation = targetAngle;
-
-        // Check if target position is within bounds
-        const targetX = currentMove.targetPos.x;
-        const targetZ = currentMove.targetPos.z;
-        
-        if (Math.abs(targetX) > MAP_HALF_WIDTH || Math.abs(targetZ) > MAP_HALF_HEIGHT) {
-            // If out of bounds, keep the current position as target
-            currentMove.targetPos = { ...currentMove.startPos };
-            currentMove.movement = { x: 0, z: 0 };
-        }
-    }
-
-    const elapsed = Date.now() - currentMove.startTime;
-    const progress = Math.min(elapsed / MOVE_DURATION, 1);
-
-    // Lerp between start and target positions
-    targetPlayer.position.x = currentMove.startPos.x + (currentMove.targetPos.x - currentMove.startPos.x) * progress;
-    targetPlayer.position.z = currentMove.startPos.z + (currentMove.targetPos.z - currentMove.startPos.z) * progress;
-
-    // Add jumping motion using sine wave
-    targetPlayer.position.y = Math.sin(progress * Math.PI) * JUMP_HEIGHT;
-
-    // Smooth rotation animation
-    const currentRotation = targetPlayer.rotation.y;
-    const targetRotation = currentMove.targetRotation;
-    
-    // Handle rotation wrapping around 2π
-    let rotationDiff = targetRotation - currentRotation;
-    if (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
-    if (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
-    
-    targetPlayer.rotation.y += rotationDiff * ROTATION_LERP_FACTOR;
-
-    if (progress === 1) {
-        queue.shift();
-        // Reset y position when movement is complete
-        targetPlayer.position.y = 0;
-        targetPlayer.rotation.y = currentMove.targetRotation;
-    }
 }
 
 animate(); 
