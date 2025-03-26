@@ -4,7 +4,9 @@
   "description": "A multiplayer version of CrossyThree using Colyseus",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "webpack serve",
+    "build": "webpack --mode production"
   },
   "dependencies": {
     "@colyseus/core": "^0.16.13",
@@ -14,5 +16,10 @@
     "colyseus.js": "^0.16.14",
     "express": "^4.18.2",
     "three": "^0.174.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.90.3",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.2"
   }
 }

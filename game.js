@@ -1,4 +1,5 @@
-import * as THREE from './node_modules/three/build/three.module.min.js';
+import * as THREE from 'three';
+import { Client } from 'colyseus.js';
 import { createCamera, updateCameraFrustum, updateCameraPosition } from './camera.js';
 import { createPlayer, processMoveQueue } from './player.js';
 import { createGrass } from './grass.js';
@@ -75,9 +76,9 @@ let touchStartY = 0;
 let touchStartTime = 0;
 
 // Multiplayer setup
-const client = new window.Colyseus.Client(window.location.protocol === 'https:' 
-    ? 'wss://crossy-three-multiplayer.appspot.com'
-    : 'ws://localhost:3000');
+const client = new Client(window.location.protocol === 'https:' 
+    ? `wss://${window.location.host}`
+    : `ws://${window.location.host}`);
 let room = null;
 let playerId = null;
 const otherPlayers = new Map();

@@ -8,7 +8,10 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Serve static files from the current directory
+// Serve static files from the dist directory first (for bundle.js)
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Then serve static files from the root directory (for index.html)
 app.use(express.static(__dirname));
 
 // Define the Player schema
