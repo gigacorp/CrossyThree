@@ -77,8 +77,8 @@ let touchStartTime = 0;
 
 // Multiplayer setup
 const client = new Client(window.location.protocol === 'https:' 
-    ? `wss://${window.location.host}`
-    : `ws://${window.location.host}`);
+    ? `wss://${window.location.hostname}`
+    : `ws://${window.location.hostname}:3000`);
 let room = null;
 let playerId = null;
 const otherPlayers = new Map();
