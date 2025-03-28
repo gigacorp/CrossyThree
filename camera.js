@@ -24,7 +24,7 @@ export function createCamera() {
         0, // top (will be updated)
         0, // bottom (will be updated)
         100, // near
-        900 // far
+        2000 // far
     );
 
     camera.position.copy(CAMERA_OFFSET);
