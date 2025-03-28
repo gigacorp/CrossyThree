@@ -1,8 +1,11 @@
 import * as THREE from 'three';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { Client } from 'colyseus.js';
 import { createCamera, updateCameraFrustum, updateCameraPosition } from './camera.js';
 import { createPlayer, processMoveQueue } from './player.js';
 import { createGrass } from './grass.js';
+import { createGroundText } from './text.js';
 import { 
     MAP_WIDTH, MAP_HEIGHT, MAP_HALF_WIDTH, MAP_HALF_HEIGHT,
     MOVE_DURATION, MOVE_DISTANCE, JUMP_HEIGHT,
@@ -20,6 +23,9 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
+
+// Add some instructions text
+scene.add(createGroundText('Use arrows to move', { x: -120, z: 0 }, '#ffffff'));
 
 // Handle window resize
 window.addEventListener('resize', () => {
