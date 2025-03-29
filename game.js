@@ -25,7 +25,7 @@ renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // Add some instructions text
-scene.add(createGroundText('Use arrows to move', { x: -120, z: 0 }, '#ffffff'));
+scene.add(createGroundText('Use arrow keys to move', { x: 0, z: MAP_HALF_HEIGHT+10 }, '#ffffff'));
 
 // Handle window resize
 window.addEventListener('resize', () => {
