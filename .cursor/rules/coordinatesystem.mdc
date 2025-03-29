@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Coordinate system
+
+When we say up, we mean negative z-direction
+When we say down, we mean positive z-direction
+
+The game goes from start to finish
+
+Start is as far down as you can
+Finish is as far up as you can
