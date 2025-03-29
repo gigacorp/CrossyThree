@@ -4,7 +4,7 @@ const { Server, Room } = require('colyseus');
 const { monitor } = require('@colyseus/monitor');
 const { Schema, MapSchema, defineTypes } = require('@colyseus/schema');
 const path = require('path');
-
+const { MAP_HALF_HEIGHT, BLOCK_SIZE } = require('./constants.js');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -47,21 +47,47 @@ defineTypes(GameState, {
 class GameRoom extends Room {
     onCreate(options) {
         this.setState(new GameState());
+
         this.onMessage('move', (client, message) => {
             const playerId = client.sessionId;
-            // Broadcast the move command to all other clients with positions
+            const playerState = this.state.players.get(playerId);
+
+            if (!playerState) return;
+
+            // Update position if targetPos is provided
+            if (message.targetPos) {
+                playerState.x = message.targetPos.x;
+                playerState.z = message.targetPos.z;
+                // Y position (jumping) is handled client-side for animation
+            }
+
+            // Update rotation based on movement direction if movement is provided
+            if (message.movement && (message.movement.x !== 0 || message.movement.z !== 0)) {
+                // Calculate rotation based on the direction vector
+                // atan2(x, z) gives angle relative to positive Z axis (clockwise)
+                playerState.rotation = Math.atan2(message.movement.x, message.movement.z);
+            }
+
+            // Broadcast the move command to other clients for animation interpolation
             this.broadcast('playerMoveCommand', {
                 playerId,
-                movement: message.movement,
-                startPos: message.startPos,
-                targetPos: message.targetPos
-            });
+                movement: message.movement, // Original movement vector
+                startPos: message.startPos, // Where the client started the move
+                targetPos: message.targetPos // Where the player should end up
+            }, { except: client }); // Don't send back to the sender
         });
     }
 
     onJoin(client, options) {
         const playerId = client.sessionId;
         const player = new Player();
+        
+        // Set initial spawn position to match game.js
+        player.x = 0;
+        player.y = 0;
+        player.z = MAP_HALF_HEIGHT-BLOCK_SIZE/2;
+
+        player.rotation = 0;
         this.state.players.set(playerId, player);
         this.state.playerCount++;
         client.send('playerId', playerId);

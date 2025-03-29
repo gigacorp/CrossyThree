@@ -92,6 +92,50 @@ let playerId = null;
 const otherPlayers = new Map();
 const otherPlayersMoveQueues = new Map();
 
+// Function to synchronize local player meshes with server state
+function syncPlayerState(state) {
+    if (!playerId) {
+        console.warn('syncPlayerState called before playerId was set. Skipping update.');
+        return; // Don't process state until we know who we are
+    }
+    updatePlayerCount(state.playerCount);
+
+    const playersInServerState = new Set();
+
+    // Create or update players based on server state
+    state.players.forEach((playerSchema, id) => {
+        playersInServerState.add(id); // Mark this player as present in server state
+
+        if (id === playerId) { // Skip self
+            return;
+        }
+
+        let otherPlayerMesh = otherPlayers.get(id);
+        if (!otherPlayerMesh) {
+            console.log(`Sync: Creating mesh for player ${id}`);
+            otherPlayerMesh = createPlayer();
+            scene.add(otherPlayerMesh);
+            otherPlayers.set(id, otherPlayerMesh);
+            if (!otherPlayersMoveQueues.has(id)) {
+                otherPlayersMoveQueues.set(id, []);
+            }
+        }
+        // Update position and rotation
+        otherPlayerMesh.position.set(playerSchema.x, playerSchema.y, playerSchema.z);
+        otherPlayerMesh.rotation.y = playerSchema.rotation;
+    });
+
+    // Remove local players that are NOT in the current server state
+    otherPlayers.forEach((otherPlayerMesh, id) => {
+        if (!playersInServerState.has(id)) { 
+            console.log(`Sync: Removing mesh for player ${id} (not in server state)`);
+            scene.remove(otherPlayerMesh);
+            otherPlayers.delete(id);
+            otherPlayersMoveQueues.delete(id);
+        }
+    });
+}
+
 // Connect to server
 async function connectToServer() {
     try {
@@ -101,43 +145,30 @@ async function connectToServer() {
         // Update room ID display
         document.getElementById('roomId').textContent = `Room: ${room.roomId}`;
         
-        // Listen for player ID
+        // Listen for player ID and process initial state *after* receiving ID
         room.onMessage('playerId', (id) => {
             playerId = id;
             console.log('Received player ID:', playerId);
+
+            // Process Initial State
+            console.log('Processing initial state after receiving playerId...');
+            syncPlayerState(room.state); 
+            console.log('Finished processing initial state.');
         });
 
         // Listen for player move commands
         room.onMessage('playerMoveCommand', (data) => {
-            if (data.playerId !== playerId) {
-                queueOtherPlayerMove(data.playerId, data.movement, data.startPos, data.targetPos);
-            }
+            // Server excludes sender from broadcast, so this is always another player
+            queueOtherPlayerMove(data.playerId, data.movement, data.startPos, data.targetPos);
         });
 
         // Listen for players leaving
-        room.onMessage('playerLeft', (playerId) => {
-            removeOtherPlayer(playerId);
+        room.onMessage('playerLeft', (playerIdToRemove) => {
+            removeOtherPlayer(playerIdToRemove);
         });
 
-        // Listen for state changes
-        room.onStateChange((state) => {
-            updatePlayerCount(state.playerCount);
-            
-            // Only process other players if we have our playerId
-            if (playerId) {
-                // Create other players that are already in the room
-                state.players.forEach((player, id) => {
-                    if (id !== playerId) {
-                        updateOtherPlayer(id, {
-                            x: player.x,
-                            y: player.y,
-                            z: player.z,
-                            rotation: player.rotation
-                        });
-                    }
-                });
-            }
-        });
+        // Listen for state changes (Handles subsequent updates)
+        room.onStateChange(syncPlayerState); // Use the sync function directly
 
     } catch (error) {
         console.error('Failed to connect to server:', error);
@@ -155,11 +186,13 @@ function updateOtherPlayer(playerId, position) {
     otherPlayer.rotation.y = position.rotation;
 }
 
-function removeOtherPlayer(playerId) {
-    const otherPlayer = otherPlayers.get(playerId);
+function removeOtherPlayer(playerIdToRemove) { // Renamed parameter
+    console.log(`Removing player ${playerIdToRemove} due to playerLeft message.`);
+    const otherPlayer = otherPlayers.get(playerIdToRemove);
     if (otherPlayer) {
         scene.remove(otherPlayer);
-        otherPlayers.delete(playerId);
+        otherPlayers.delete(playerIdToRemove);
+        otherPlayersMoveQueues.delete(playerIdToRemove); // Remove move queue too
     }
 }
 
@@ -322,6 +355,7 @@ function animate() {
     // Process other players' movement queues
     otherPlayersMoveQueues.forEach((queue, playerId) => {
         if (queue.length > 0) {
+            console.log('otherPlayersMoveQueues:', queue, playerId);
             const otherPlayer = otherPlayers.get(playerId);
             if (otherPlayer) {
                 processMoveQueue(queue, otherPlayer, {
