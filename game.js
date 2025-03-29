@@ -2,14 +2,14 @@ import * as THREE from 'three';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { Client } from 'colyseus.js';
-import { createCamera, updateCameraFrustum, updateCameraPosition } from './camera.js';
+import { createCamera, updateCameraFrustum, updateCameraPosition, focusOnPosition } from './camera.js';
 import { createPlayer, processMoveQueue } from './player.js';
 import { createGrass } from './grass.js';
 import { createGroundText } from './text.js';
 import { 
     MAP_WIDTH, MAP_HEIGHT, MAP_HALF_WIDTH, MAP_HALF_HEIGHT,
     MOVE_DURATION, MOVE_DISTANCE, JUMP_HEIGHT,
-    SWIPE_THRESHOLD, TAP_THRESHOLD
+    SWIPE_THRESHOLD, TAP_THRESHOLD, BLOCK_SIZE
 } from './constants.js';
 
 // Scene setup
@@ -43,6 +43,8 @@ scene.add(grassField);
 
 // Player setup
 const player = createPlayer();
+player.position.set(0, 0, MAP_HALF_HEIGHT-BLOCK_SIZE/2); // Start at the bottom of the map
+focusOnPosition(camera, player.position); // Focus camera on player's initial position
 scene.add(player);
 
 // Lighting

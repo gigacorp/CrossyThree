@@ -1,9 +1,9 @@
 import * as THREE from './node_modules/three/build/three.module.min.js';
-import { MAP_HALF_WIDTH, MAP_HALF_HEIGHT, MOVE_DURATION, JUMP_HEIGHT } from './constants.js';
+import { BLOCK_SIZE, MAP_HALF_WIDTH, MAP_HALF_HEIGHT, MOVE_DURATION, JUMP_HEIGHT } from './constants.js';
 
 export function createPlayer() {
     // Create main player body (white box)
-    const playerGeometry = new THREE.BoxGeometry(15, 20, 15);
+    const playerGeometry = new THREE.BoxGeometry(BLOCK_SIZE/2, BLOCK_SIZE*0.7, BLOCK_SIZE/2);
     const playerMaterial = new THREE.MeshLambertMaterial({ color: "white" });
     const playerBody = new THREE.Mesh(playerGeometry, playerMaterial);
     playerBody.castShadow = true;

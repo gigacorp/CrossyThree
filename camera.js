@@ -36,6 +36,13 @@ export function createCamera() {
     return camera;
 }
 
+export function focusOnPosition(camera, position) {
+    // Instantly move camera to focus on the given position
+    camera.position.x = position.x + CAMERA_OFFSET.x;
+    camera.position.z = position.z + CAMERA_OFFSET.z;
+    camera.position.y = CAMERA_OFFSET.y;
+}
+
 export function updateCameraPosition(camera, playerPosition) {
     const targetX = playerPosition.x + CAMERA_OFFSET.x;
     const targetZ = playerPosition.z + CAMERA_OFFSET.z;

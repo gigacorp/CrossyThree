@@ -1,8 +1,8 @@
 import * as THREE from './node_modules/three/build/three.module.min.js';
-import { MAP_WIDTH, MAP_HEIGHT } from './constants.js';
+import { MAP_WIDTH, MAP_HEIGHT, BLOCK_SIZE } from './constants.js';
 
 export function createGrass() {
-    const stripeWidth = 100; // Width of each stripe
+    const stripeWidth = BLOCK_SIZE; // Width of each stripe
     const numStripes = Math.ceil(MAP_HEIGHT / stripeWidth); // Calculate number of stripes to fill map height
     const grassGroup = new THREE.Group();
     
