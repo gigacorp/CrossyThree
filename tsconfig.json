@@ -1,0 +1,50 @@
+{
+  "compilerOptions": {
+    /* Base Options */
+    "esModuleInterop": true, // Enables compatibility with CommonJS modules
+    "skipLibCheck": true, // Skip type checking of declaration files
+    "target": "ES2016", // Target latest ECMAScript features supported by modern browsers/Node
+    "allowJs": true, // Allow JavaScript files to be compiled
+    "resolveJsonModule": true, // Allows importing JSON files
+    "moduleDetection": "force", // Treat files as modules even without imports/exports
+
+    /* Strict Type-Checking Options */
+    "strict": true, // Enable all strict type-checking options
+    // "noImplicitAny": true,                 /* Raise error on expressions and declarations with an implied 'any' type. */
+    // "strictNullChecks": true,              /* Enable strict null checks. */
+    // "strictFunctionTypes": true,           /* Enable strict checking of function types. */
+    // "strictBindCallApply": true,           /* Enable strict 'bind', 'call', and 'apply' methods on functions. */
+    // "strictPropertyInitialization": true,  /* Enable strict checking of property initialization in classes. */
+    // "noImplicitThis": true,                /* Raise error on 'this' expressions with an implied 'any' type. */
+    // "alwaysStrict": true,                  /* Parse in strict mode and emit "use strict" for each source file. */
+
+    /* Module Resolution Options */
+    "module": "CommonJS", // Use CommonJS for Node.js compatibility (server)
+    "moduleResolution": "node", // Explicitly use Node.js resolution
+    "outDir": "./dist", // Redirect output structure to the directory
+    "rootDir": "./", // Specify the root directory of input files
+    "baseUrl": ".", // Base directory to resolve non-absolute module names
+    "paths": { // Optional: Define paths for module resolution
+      "*": [
+        "node_modules/*"
+      ]
+    },
+
+    /* Source Map Options */
+    "sourceMap": true, // Generate corresponding '.map' file
+
+    /* Other Options */
+    "forceConsistentCasingInFileNames": true, // Disallow inconsistently-cased references to the same file.
+    "allowSyntheticDefaultImports": true, // Allow default imports from modules with no default export
+    "lib": ["ESNext", "DOM"], // Specify library files to be included in the compilation.
+  },
+  "include": [ // Files/patterns to include in the program
+    "**/*.ts",
+    "**/*.js" // Include existing JS files for gradual migration
+  ],
+  "exclude": [ // Files/patterns to exclude
+    "node_modules",
+    "dist", // Exclude the output directory
+    "webpack.config.js" // We'll keep this as JS for now
+  ]
+} 

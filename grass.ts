@@ -1,5 +1,5 @@
-import * as THREE from './node_modules/three/build/three.module.min.js';
-import { MAP_WIDTH, MAP_HEIGHT, BLOCK_SIZE } from './constants.js';
+import * as THREE from 'three';
+import { MAP_WIDTH, MAP_HEIGHT, BLOCK_SIZE } from './constants';
 
 export function createGrass() {
     const stripeWidth = BLOCK_SIZE; // Width of each stripe

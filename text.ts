@@ -1,10 +1,17 @@
 import * as THREE from 'three';
+import { BLOCK_SIZE } from './constants';
 
 // Function to create 2D text sprite
-export function createGroundText(text, position, color = '#ffffff') {
+export function createGroundText(text: string, position: THREE.Vector3, color = '#ffffff'): THREE.Mesh | null {
     // Create canvas
     const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
+    const context: CanvasRenderingContext2D | null = canvas.getContext('2d');
+
+    if (!context) {
+        console.error('Failed to get 2D context');
+        return null;
+    }
+
     canvas.width = 2048; // Doubled canvas width
     canvas.height = 512; // Doubled canvas height
 

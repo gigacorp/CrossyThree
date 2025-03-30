@@ -1,12 +1,13 @@
 {
   "name": "crossy-three-multiplayer",
   "version": "1.0.0",
-  "description": "A multiplayer version of CrossyThree using Colyseus",
-  "main": "server.js",
+  "description": "Multiplayer 3D crossy road style game using Three.js and Colyseus",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "webpack serve",
-    "build": "webpack --mode production"
+    "start": "npm run build && node dist/server.js",
+    "dev": "webpack serve --config webpack.config.js",
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "@colyseus/core": "^0.16.14",
@@ -18,6 +19,11 @@
     "three": "^0.174.0"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.13.14",
+    "@types/three": "^0.175.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.2",
     "webpack": "^5.98.0",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.0"

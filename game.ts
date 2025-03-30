@@ -1,16 +1,18 @@
 import * as THREE from 'three';
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
-import { Client } from 'colyseus.js';
-import { createCamera, updateCameraFrustum, updateCameraPosition, focusOnPosition } from './camera.js';
-import { createPlayer, processMoveQueue } from './player.js';
-import { createGrass } from './grass.js';
-import { createGroundText } from './text.js';
+// import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+// import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+import { Client, Room } from 'colyseus.js';
+import { createCamera, updateCameraFrustum, updateCameraPosition, focusOnPosition } from './camera';
+import { createPlayer, processMoveQueue } from './player';
+import { createGrass } from './grass';
+import { createGroundText } from './text';
 import { 
     MAP_WIDTH, MAP_HEIGHT, MAP_HALF_WIDTH, MAP_HALF_HEIGHT,
     MOVE_DURATION, MOVE_DISTANCE, JUMP_HEIGHT,
     SWIPE_THRESHOLD, TAP_THRESHOLD, BLOCK_SIZE
-} from './constants.js';
+} from './constants';
+import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand } from './schema'; // No MoveCommand here
+import { MoveCommand } from './client-types'; // Import from new file
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -25,10 +27,16 @@ renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // Add some instructions text
-scene.add(createGroundText('Use arrow keys to move', { x: 0, z: MAP_HALF_HEIGHT+10 }, '#ffffff'));
+const instructionsText = createGroundText('Use arrow keys to move', new THREE.Vector3(0, 0, MAP_HALF_HEIGHT+10), '#ffffff')
+if (instructionsText) {
+    scene.add(instructionsText);
+}
 
 // Add finish line text
-scene.add(createGroundText('The end', { x: 0, z: -MAP_HALF_HEIGHT-10 }, '#ffffff'));
+const finishText = createGroundText('The end', new THREE.Vector3(0, 0, -MAP_HALF_HEIGHT-10), '#ffffff');
+if (finishText) {
+    scene.add(finishText);
+}
 
 // Handle window resize
 window.addEventListener('resize', () => {
@@ -77,8 +85,8 @@ scene.add(ambientLight2);
 
 scene.add(directionalLight);
 
-// Movement queue
-const moveQueue = [];
+// Movement queue for the local player
+const moveQueue: MoveCommand[] = [];
 let isMoving = false;
 
 // Touch controls
@@ -90,26 +98,27 @@ let touchStartTime = 0;
 const client = new Client(window.location.protocol === 'https:' 
     ? `wss://${window.location.hostname}`
     : `ws://${window.location.hostname}:3000`);
-let room = null;
-let playerId = null;
-const otherPlayers = new Map();
-const otherPlayersMoveQueues = new Map();
+
+let room: Room<GameState> | null = null; // Type the room variable
+let playerId: string | null = null;
+const otherPlayers = new Map<string, THREE.Group>(); // Map sessionId to player mesh
+const otherPlayersMoveQueues = new Map<string, MoveCommand[]>(); // Type the move queue map
 
 // Function to synchronize local player meshes with server state
-function syncPlayerState(state) {
-    if (!playerId) {
-        console.warn('syncPlayerState called before playerId was set. Skipping update.');
-        return; // Don't process state until we know who we are
+function syncPlayerState(state: GameState) { // Type the state parameter
+    if (!playerId || !room) { // Also check if room exists
+        console.warn('syncPlayerState called before playerId or room was set. Skipping update.');
+        return; 
     }
     updatePlayerCount(state.playerCount);
 
-    const playersInServerState = new Set();
+    const playersInServerState = new Set<string>();
 
     // Create or update players based on server state
-    state.players.forEach((playerSchema, id) => {
-        playersInServerState.add(id); // Mark this player as present in server state
+    state.players.forEach((playerSchema: PlayerSchema, id: string) => { // Type playerSchema and id
+        playersInServerState.add(id); 
 
-        if (id === playerId) { // Skip self
+        if (id === playerId) { 
             return;
         }
 
@@ -123,7 +132,7 @@ function syncPlayerState(state) {
                 otherPlayersMoveQueues.set(id, []);
             }
         }
-        // Update position and rotation
+        // Update position and rotation from schema
         otherPlayerMesh.position.set(playerSchema.x, playerSchema.y, playerSchema.z);
         otherPlayerMesh.rotation.y = playerSchema.rotation;
     });
@@ -142,54 +151,51 @@ function syncPlayerState(state) {
 // Connect to server
 async function connectToServer() {
     try {
-        room = await client.joinOrCreate('game_room');
-        console.log('Connected to room:', room);
+        // Explicitly type the room on join/create
+        room = await client.joinOrCreate<GameState>('game_room');
+        console.log('Connected to room:', room.roomId, 'SessionId:', room.sessionId);
         
         // Update room ID display
-        document.getElementById('roomId').textContent = `Room: ${room.roomId}`;
+        const roomIdElement = document.getElementById('roomId');
+        if (roomIdElement) {
+            roomIdElement.textContent = `Room: ${room.roomId}`;
+        }
         
         // Listen for player ID and process initial state *after* receiving ID
-        room.onMessage('playerId', (id) => {
+        room.onMessage('playerId', (id: string) => { // Type the id
             playerId = id;
             console.log('Received player ID:', playerId);
 
             // Process Initial State
-            console.log('Processing initial state after receiving playerId...');
-            syncPlayerState(room.state); 
-            console.log('Finished processing initial state.');
+            if (room) { // Check if room exists before accessing state
+                 console.log('Processing initial state after receiving playerId...');
+                 syncPlayerState(room.state);
+                 console.log('Finished processing initial state.');
+            } else {
+                console.error('Room object became null unexpectedly after join.')
+            }
         });
 
-        // Listen for player move commands
-        room.onMessage('playerMoveCommand', (data) => {
-            // Server excludes sender from broadcast, so this is always another player
+        // Listen for player move commands from broadcast
+        room.onMessage('playerMoveCommand', (data: PlayerMoveCommand) => { // Use PlayerMoveCommand interface
+            // Server already excludes sender, so no need to check playerId === data.playerId
             queueOtherPlayerMove(data.playerId, data.movement, data.startPos, data.targetPos);
         });
 
         // Listen for players leaving
-        room.onMessage('playerLeft', (playerIdToRemove) => {
+        room.onMessage('playerLeft', (playerIdToRemove: string) => { // Type the ID
             removeOtherPlayer(playerIdToRemove);
         });
 
         // Listen for state changes (Handles subsequent updates)
-        room.onStateChange(syncPlayerState); // Use the sync function directly
+        room.onStateChange(syncPlayerState); // Uses the typed sync function
 
     } catch (error) {
         console.error('Failed to connect to server:', error);
     }
 }
 
-function updateOtherPlayer(playerId, position) {
-    let otherPlayer = otherPlayers.get(playerId);
-    if (!otherPlayer) {
-        otherPlayer = createPlayer();
-        scene.add(otherPlayer);
-        otherPlayers.set(playerId, otherPlayer);
-    }
-    otherPlayer.position.set(position.x, position.y, position.z);
-    otherPlayer.rotation.y = position.rotation;
-}
-
-function removeOtherPlayer(playerIdToRemove) { // Renamed parameter
+function removeOtherPlayer(playerIdToRemove: string) { // Renamed parameter
     console.log(`Removing player ${playerIdToRemove} due to playerLeft message.`);
     const otherPlayer = otherPlayers.get(playerIdToRemove);
     if (otherPlayer) {
@@ -199,47 +205,57 @@ function removeOtherPlayer(playerIdToRemove) { // Renamed parameter
     }
 }
 
-function updatePlayerCount(count) {
-    document.getElementById('playerCount').textContent = `Players: ${count}`;
+function updatePlayerCount(count: number) {
+    const playerCountElement = document.getElementById('playerCount');
+    if (playerCountElement) {
+        playerCountElement.textContent = `Players: ${count}`;
+    }
 }
 
-function queueOtherPlayerMove(playerId, movement, startPos, targetPos) {
+function queueOtherPlayerMove(playerId: string, movement: { x: number; z: number }, startPos: { x: number; z: number }, targetPos: { x: number; z: number }) {
     let otherPlayer = otherPlayers.get(playerId);
     if (!otherPlayer) {
-        otherPlayer = createPlayer();
+        // Should ideally not happen if syncPlayerState runs first, but good failsafe
+        console.warn(`queueOtherPlayerMove: Player ${playerId} mesh not found. Creating.`);
+        otherPlayer = createPlayer(); 
         scene.add(otherPlayer);
         otherPlayers.set(playerId, otherPlayer);
+        otherPlayersMoveQueues.set(playerId, []); // Ensure queue exists
     }
 
-    // Initialize or get the move queue for this player
-    if (!otherPlayersMoveQueues.has(playerId)) {
-        otherPlayersMoveQueues.set(playerId, []);
-    }
     const moveQueue = otherPlayersMoveQueues.get(playerId);
-
-    // Add the move command to the queue
-    moveQueue.push({
-        movement,
-        startPos,
-        targetPos,
-        startTime: null
-    });
+    if (moveQueue) { // Check if queue exists
+        const command: MoveCommand = { // Use the interface
+            movement,
+            startPos,
+            targetPos,
+            startTime: null
+        };
+        moveQueue.push(command);
+    } else {
+        console.error(`Move queue not found for player ${playerId} in queueOtherPlayerMove`);
+    }
 }
 
 // Modify the queueMove function to send movement to server
-function queueMove(movement) {
-    // Use the target position of the current move as the start position for the next move
-    const startPos = moveQueue.length > 0 ? moveQueue[moveQueue.length - 1].targetPos : {
-        x: player.position.x,
-        z: player.position.z
-    };
+function queueMove(movement: { x: number; z: number }) {
+    if (!room || !playerId) {
+        console.warn('Cannot queue move, room or playerId not available.');
+        return;
+    }
+    
+    // Determine start position based on the *local* player's move queue
+    const startPos = moveQueue.length > 0 
+        ? moveQueue[moveQueue.length - 1].targetPos 
+        : { x: player.position.x, z: player.position.z }; // Use global `player` mesh position if queue is empty
     
     const targetPos = {
         x: startPos.x + movement.x * MOVE_DISTANCE,
         z: startPos.z + movement.z * MOVE_DISTANCE
     };
 
-    moveQueue.push({
+    // Add to the local player's visual queue
+    const command: MoveCommand = { 
         movement: {
             x: movement.x * MOVE_DISTANCE,
             z: movement.z * MOVE_DISTANCE
@@ -247,20 +263,16 @@ function queueMove(movement) {
         startPos,
         targetPos,
         startTime: null
-    });
+    };
+    moveQueue.push(command); 
 
-    // Send movement to server
-    if (room) {
-        // Send the movement command to the server with positions
-        room.send('move', {
-            movement: {
-                x: movement.x,
-                z: movement.z
-            },
-            startPos,
-            targetPos
-        });
-    }
+    // Send movement intention to server using the MoveMessage type
+    const movePayload: MoveMessage = {
+        movement, // Send the original direction vector
+        startPos,
+        targetPos
+    };
+    room.send('move', movePayload);
 }
 
 // Connect to server when the page loads
@@ -270,7 +282,7 @@ connectToServer();
 document.addEventListener('keydown', (e) => {
     if (e.repeat) return; // Prevent key repeat
     
-    let movement = null;
+    let movement: { x: number; z: number } | null = null;
     switch(e.key) {
         case 'ArrowLeft':
             movement = {x: -MOVE_DISTANCE, z: 0};
