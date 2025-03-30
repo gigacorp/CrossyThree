@@ -9,7 +9,8 @@ import { createGroundText } from './text';
 import { 
     MAP_WIDTH, MAP_HEIGHT, MAP_HALF_WIDTH, MAP_HALF_HEIGHT,
     MOVE_DURATION, MOVE_DISTANCE, JUMP_HEIGHT,
-    SWIPE_THRESHOLD, TAP_THRESHOLD, BLOCK_SIZE
+    SWIPE_THRESHOLD, TAP_THRESHOLD, BLOCK_SIZE,
+    ROTATION_LERP_FACTOR
 } from './constants';
 import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand } from './schema'; // No MoveCommand here
 import { MoveCommand } from './client-types'; // Import from new file

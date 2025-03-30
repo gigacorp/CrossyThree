@@ -1,0 +1,32 @@
+# .gcloudignore
+
+# Ignore node_modules, Git files, local logs
+node_modules/
+.git/
+.gitignore
+npm-debug.log*
+
+# Ignore source code and config files not needed at runtime
+src/
+*.ts
+tsconfig.json
+webpack.config.js
+
+# Ignore development artifacts if any (e.g., coverage reports)
+coverage/
+.vscode/
+
+# Ignore specific OS files
+.DS_Store
+Thumbs.db
+
+# BUT include necessary runtime files and the build output
+# The ! prefix means "do not ignore this file/directory"
+!dist/
+!package.json
+!package-lock.json # Important for consistent dependency installation
+!index.html
+!app.yaml # Needs to be uploaded!
+
+# Include any other static assets if they exist in the root (e.g., images, fonts)
+# !assets/ 

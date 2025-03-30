@@ -22,8 +22,8 @@
     "module": "CommonJS", // Use CommonJS for Node.js compatibility (server)
     "moduleResolution": "node", // Explicitly use Node.js resolution
     "outDir": "./dist", // Redirect output structure to the directory
-    "rootDir": "./", // Specify the root directory of input files
-    "baseUrl": ".", // Base directory to resolve non-absolute module names
+    "rootDir": "./src", // Specify src as the root of input files
+    "baseUrl": "./src", // Base directory for non-relative module resolution
     "paths": { // Optional: Define paths for module resolution
       "*": [
         "node_modules/*"
@@ -38,13 +38,12 @@
     "allowSyntheticDefaultImports": true, // Allow default imports from modules with no default export
     "lib": ["ESNext", "DOM"], // Specify library files to be included in the compilation.
   },
-  "include": [ // Files/patterns to include in the program
-    "**/*.ts",
-    "**/*.js" // Include existing JS files for gradual migration
+  "include": [
+    "src/**/*.ts" // Only include files within src
   ],
-  "exclude": [ // Files/patterns to exclude
+  "exclude": [
     "node_modules",
-    "dist", // Exclude the output directory
-    "webpack.config.js" // We'll keep this as JS for now
+    "dist",
+    "webpack.config.js"
   ]
 } 

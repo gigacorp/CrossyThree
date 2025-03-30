@@ -4,9 +4,11 @@
   "description": "Multiplayer 3D crossy road style game using Three.js and Colyseus",
   "main": "dist/server.js",
   "scripts": {
-    "start": "npm run build && node dist/server.js",
+    "start": "node dist/server.js",
+    "build:local": "npm run clean && tsc && webpack --mode production --config webpack.config.js",
+    "gcp-build": "",
+    "clean": "rm -rf dist",
     "dev": "webpack serve --config webpack.config.js",
-    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -19,8 +21,8 @@
     "three": "^0.174.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
     "@types/node": "^22.13.14",
+    "@types/express": "^4.17.21",
     "@types/three": "^0.175.0",
     "ts-loader": "^9.5.2",
     "typescript": "^5.8.2",

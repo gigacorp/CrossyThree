@@ -2,11 +2,11 @@ const path = require('path');
 
 module.exports = {
     mode: 'development',
-    entry: './game.ts',
+    entry: './src/game.ts',
     output: {
         filename: 'bundle.js',
         path: path.resolve(__dirname, 'dist'),
-        publicPath: '/'
+        publicPath: '/dist/'
     },
     devtool: 'inline-source-map',
     module: {
@@ -22,9 +22,11 @@ module.exports = {
         static: {
             directory: __dirname
         },
-        compress: true,
+        devMiddleware: {
+             publicPath: '/dist/' 
+        },
+        liveReload: true,
         port: 8080,
-        hot: true,
         proxy: [
             {
                 context: ['/colyseus', '/matchmake'],

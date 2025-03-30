@@ -3,19 +3,37 @@ import { createServer } from 'http';
 import { Server, Room, Client } from 'colyseus';
 import { monitor } from '@colyseus/monitor';
 import path from 'path';
-import { MAP_HALF_HEIGHT, BLOCK_SIZE } from './constants'; 
-import { Player, GameState, MoveMessage, PlayerMoveCommand } from './schema'; // Import shared schema AND MoveMessage and PlayerMoveCommand
+import { MAP_HALF_HEIGHT, BLOCK_SIZE } from './constants';
+import { Player, GameState, MoveMessage, PlayerMoveCommand } from './schema';
 
 // __dirname is available directly in CommonJS modules
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
+// When running node dist/server.js, __dirname is /path/to/project/dist
+
+// --- DEBUG: Log __dirname ---
+// console.log('>>> Server process starting. __dirname:', __dirname);
+// --- END DEBUG ---
 
 const app = express();
 const port = parseInt(process.env.PORT || '3000', 10); // Parse port to number
 
-// Serve static files from the root directory (relative to where server.ts is compiled to)
-// Compiled output is in dist/, so we need to go up one level to the project root.
+// --- DEBUG: Log all requests ---
+// app.use((req, res, next) => {
+//   console.log(`>>> Incoming Request: ${req.method} ${req.originalUrl}`);
+//   next(); // Pass control to the next middleware
+// });
+// --- END DEBUG ---
+
+// --- Static Files Configuration --- 
+
+// 1. Serve files from the 'dist' directory specifically for requests starting with '/dist'
+// Put this FIRST to ensure it handles /dist/bundle.js
+app.use('/dist', express.static(__dirname)); // __dirname is the actual 'dist' folder
+
+// 2. Serve files from the root directory (e.g., index.html) AFTER checking /dist
+// path.join goes up one level from dist to the project root
 app.use(express.static(path.join(__dirname, '..')));
+
+// --- End Static Files Configuration ---
 
 // Colyseus Monitor
 app.use('/colyseus', monitor());
@@ -71,7 +89,7 @@ class GameRoom extends Room<GameState> {
     }
 
     onDispose() {
-        console.log('Room', this.roomId, 'disposing...');
+        // console.log('Room', this.roomId, 'disposing...');
     }
 }
 
