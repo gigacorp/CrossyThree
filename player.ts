@@ -65,6 +65,8 @@ export function processMoveQueue(queue: MoveCommand[], targetPlayer: THREE.Group
         }
     }
 
+    let isOutOfBounds = Math.abs(move.targetPos.x) > MAP_HALF_WIDTH || Math.abs(move.targetPos.z) > MAP_HALF_HEIGHT;
+
     const elapsed = Date.now() - move.startTime;
     const progress = Math.min(elapsed / moveDuration, 1); // Ensure progress doesn't exceed 1
 
@@ -76,7 +78,11 @@ export function processMoveQueue(queue: MoveCommand[], targetPlayer: THREE.Group
     const jumpProgress = Math.sin(progress * Math.PI);
     const currentY = jumpProgress * jumpHeight;
 
-    targetPlayer.position.set(currentX, currentY, currentZ);
+    if (!isOutOfBounds) {
+        targetPlayer.position.set(currentX, currentY, currentZ);
+    } else {
+        targetPlayer.position.y = currentY // enable jump even when out of bounds
+    }
 
     // Interpolate rotation if targetRotation is set
     if (move.targetRotation !== undefined) {
@@ -86,7 +92,9 @@ export function processMoveQueue(queue: MoveCommand[], targetPlayer: THREE.Group
     // If move is complete, remove it from the queue
     if (progress >= 1) {
         // Ensure final position and rotation are set exactly
-        targetPlayer.position.set(move.targetPos.x, 0, move.targetPos.z); // Reset Y to 0
+        if (!isOutOfBounds) {
+            targetPlayer.position.set(move.targetPos.x, 0, move.targetPos.z); // Reset Y to 0
+        }
         if (move.targetRotation !== undefined) {
             targetPlayer.rotation.y = move.targetRotation;
         }
