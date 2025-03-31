@@ -12,8 +12,9 @@ import {
     SWIPE_THRESHOLD, TAP_THRESHOLD, BLOCK_SIZE,
     ROTATION_LERP_FACTOR
 } from './constants';
-import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand } from './schema'; // No MoveCommand here
-import { MoveCommand } from './client-types'; // Import from new file
+import { GameState as ColyseusGameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand } from './schema'; // Renamed Colyseus GameState
+import { MoveCommand, GameState as ClientGameState } from './client-types'; // Import client-side GameState definition
+import { MinigameManager } from './minigames/minigameManager'; // Import MinigameManager
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -27,17 +28,17 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-// Add some instructions text
-const instructionsText = createGroundText('Use arrow keys to move', new THREE.Vector3(0, 0, MAP_HALF_HEIGHT+10), '#ffffff')
-if (instructionsText) {
-    scene.add(instructionsText);
-}
+// Add some instructions text (Will be overridden by minigame)
+// const instructionsText = createGroundText('Use arrow keys to move', new THREE.Vector3(0, 0, MAP_HALF_HEIGHT+10), '#ffffff')
+// if (instructionsText) {
+//     scene.add(instructionsText);
+// }
 
-// Add finish line text
-const finishText = createGroundText('The end', new THREE.Vector3(0, 0, -MAP_HALF_HEIGHT-10), '#ffffff');
-if (finishText) {
-    scene.add(finishText);
-}
+// Add finish line text (Will be overridden by minigame)
+// const finishText = createGroundText('The end', new THREE.Vector3(0, 0, -MAP_HALF_HEIGHT-10), '#ffffff');
+// if (finishText) {
+//     scene.add(finishText);
+// }
 
 // Handle window resize
 window.addEventListener('resize', () => {
@@ -58,6 +59,21 @@ const player = createPlayer();
 player.position.set(0, 0, MAP_HALF_HEIGHT-BLOCK_SIZE/2); // Start at the bottom of the map
 focusOnPosition(camera, player.position); // Focus camera on player's initial position
 scene.add(player);
+
+// Minigame Setup
+const minigameManager = new MinigameManager();
+
+// Function to create the ClientGameState object
+function getCurrentGameState(): ClientGameState {
+    return {
+        scene: scene,
+        localPlayer: player,
+        otherPlayers: Array.from(otherPlayers.values()) // Convert Map values to Array
+    };
+}
+
+// Call minigame manager when local player spawns (initially)
+minigameManager.onPlayerDidSpawn(player); 
 
 // Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -100,13 +116,14 @@ const client = new Client(window.location.protocol === 'https:'
     ? `wss://${window.location.hostname}`
     : `ws://${window.location.hostname}:3000`);
 
-let room: Room<GameState> | null = null; // Type the room variable
+let room: Room<ColyseusGameState> | null = null; // Use the Renamed Colyseus GameState here
 let playerId: string | null = null;
 const otherPlayers = new Map<string, THREE.Group>(); // Map sessionId to player mesh
 const otherPlayersMoveQueues = new Map<string, MoveCommand[]>(); // Type the move queue map
+const clock = new THREE.Clock(); // Add clock for delta time
 
 // Function to synchronize local player meshes with server state
-function syncPlayerState(state: GameState) { // Type the state parameter
+function syncPlayerState(state: ColyseusGameState) { // Use Renamed Colyseus GameState
     if (!playerId || !room) { // Also check if room exists
         console.warn('syncPlayerState called before playerId or room was set. Skipping update.');
         return; 
@@ -116,7 +133,7 @@ function syncPlayerState(state: GameState) { // Type the state parameter
     const playersInServerState = new Set<string>();
 
     // Create or update players based on server state
-    state.players.forEach((playerSchema: PlayerSchema, id: string) => { // Type playerSchema and id
+    state.players.forEach((playerSchema: PlayerSchema, id: string) => { 
         playersInServerState.add(id); 
 
         if (id === playerId) { 
@@ -124,7 +141,9 @@ function syncPlayerState(state: GameState) { // Type the state parameter
         }
 
         let otherPlayerMesh = otherPlayers.get(id);
+        let isNewPlayer = false; // Flag to track if player is new
         if (!otherPlayerMesh) {
+            isNewPlayer = true; // Mark as new
             console.log(`Sync: Creating mesh for player ${id}`);
             otherPlayerMesh = createPlayer();
             scene.add(otherPlayerMesh);
@@ -136,6 +155,11 @@ function syncPlayerState(state: GameState) { // Type the state parameter
         // Update position and rotation from schema
         otherPlayerMesh.position.set(playerSchema.x, playerSchema.y, playerSchema.z);
         otherPlayerMesh.rotation.y = playerSchema.rotation;
+
+        // If it's a new player, notify the minigame manager
+        if (isNewPlayer) {
+            minigameManager.onPlayerDidSpawn(otherPlayerMesh);
+        }
     });
 
     // Remove local players that are NOT in the current server state
@@ -153,7 +177,7 @@ function syncPlayerState(state: GameState) { // Type the state parameter
 async function connectToServer() {
     try {
         // Explicitly type the room on join/create
-        room = await client.joinOrCreate<GameState>('game_room');
+        room = await client.joinOrCreate<ColyseusGameState>('game_room'); // Use Renamed Colyseus GameState
         console.log('Connected to room:', room.roomId, 'SessionId:', room.sessionId);
         
         // Update room ID display
@@ -163,15 +187,18 @@ async function connectToServer() {
         }
         
         // Listen for player ID and process initial state *after* receiving ID
-        room.onMessage('playerId', (id: string) => { // Type the id
+        room.onMessage('playerId', (id: string) => { 
             playerId = id;
             console.log('Received player ID:', playerId);
 
-            // Process Initial State
-            if (room) { // Check if room exists before accessing state
+            if (room) { 
                  console.log('Processing initial state after receiving playerId...');
-                 syncPlayerState(room.state);
+                 syncPlayerState(room.state); // Initial sync
                  console.log('Finished processing initial state.');
+
+                 // START THE MINIGAME HERE
+                 console.log("Attempting to start default minigame...");
+                 minigameManager.startMinigame('collectCoins', getCurrentGameState());
             } else {
                 console.error('Room object became null unexpectedly after join.')
             }
@@ -189,7 +216,7 @@ async function connectToServer() {
         });
 
         // Listen for state changes (Handles subsequent updates)
-        room.onStateChange(syncPlayerState); // Uses the typed sync function
+        room.onStateChange(syncPlayerState); 
 
     } catch (error) {
         console.error('Failed to connect to server:', error);
@@ -276,15 +303,47 @@ function queueMove(movement: { x: number; z: number }) {
     room.send('move', movePayload);
 }
 
-// Connect to server when the page loads
-connectToServer();
+// Override processMoveQueue to notify minigame manager on move completion
+const originalProcessMoveQueue = processMoveQueue; // Keep reference to original
 
-// Handle keyboard controls
-document.addEventListener('keydown', (e) => {
-    if (e.repeat) return; // Prevent key repeat
+// New wrapper function with corrected signature and logic
+const processMoveQueueWithNotify = (
+    queue: MoveCommand[], 
+    object: THREE.Group, // Expecting a Group
+    delta: number // Delta is passed to the wrapper, but not used in the call below
+): boolean => { // Returns boolean: true if still moving, false otherwise
+    const wasMoving = queue.length > 0;
+    
+    // Call the original function with 2 arguments based on the persistent linter error
+    originalProcessMoveQueue(queue, object); 
+    
+    const stillMoving = queue.length > 0;
+    const justFinishedMoving = wasMoving && !stillMoving;
+
+    if (justFinishedMoving) {
+        // Notify minigame manager that this object finished a move
+        console.log(`Player ${object.uuid} finished moving.`); 
+        minigameManager.onPlayerDidMove(object);
+    }
+    return stillMoving; // Return whether the queue still has moves
+};
+
+// Add event listeners (keyboard)
+window.addEventListener('keydown', (event) => {
+    if (minigameManager.isActive()) {
+        // Potentially handle minigame-specific input here later
+        // For now, allow normal movement during minigame
+    }
+    
+    // Allow movement even if minigame is active for now
+    // if (isMoving || minigameManager.isActive()) return; // Prevent queuing new move if already moving OR minigame active
+
+    if (isMoving) return; // Original check: Prevent queuing new move if already moving
+
+    if (event.repeat) return; // Prevent key repeat
     
     let movement: { x: number; z: number } | null = null;
-    switch(e.key) {
+    switch(event.key) {
         case 'ArrowLeft':
             movement = {x: -MOVE_DISTANCE, z: 0};
             break;
@@ -356,41 +415,43 @@ document.addEventListener('touchend', (e) => {
     e.preventDefault(); // Prevent scrolling
 });
 
-// Animation loop
+// Game loop
 function animate() {
     requestAnimationFrame(animate);
+    const delta = clock.getDelta();
 
-    // Process local player movement queue
-    if (moveQueue.length > 0) {
-        processMoveQueue(moveQueue, player, {
-            moveDuration: MOVE_DURATION,
-            jumpHeight: JUMP_HEIGHT
-        });
-    }
+    // Construct current GameState (needed for minigame update)
+    const currentClientState = getCurrentGameState();
 
-    // Process other players' movement queues
-    otherPlayersMoveQueues.forEach((queue, playerId) => {
-        if (queue.length > 0) {
-            console.log('otherPlayersMoveQueues:', queue, playerId);
-            const otherPlayer = otherPlayers.get(playerId);
-            if (otherPlayer) {
-                processMoveQueue(queue, otherPlayer, {
-                    moveDuration: MOVE_DURATION,
-                    jumpHeight: JUMP_HEIGHT
-                });
-            }
-        }
+    // Update minigame manager IF active
+    if (minigameManager.isActive()) {
+        // Correct call: MinigameManager.update only needs delta
+        minigameManager.update(delta); 
+    } 
+    
+    // Process movement for local player using the wrapper (passing delta to wrapper)
+    isMoving = processMoveQueueWithNotify(moveQueue, player as THREE.Group, delta);
+
+    // Process movement for other players using the wrapper (passing delta to wrapper)
+    otherPlayersMoveQueues.forEach((queue, id) => {
+         const otherPlayerMesh = otherPlayers.get(id);
+         if (otherPlayerMesh) {
+             processMoveQueueWithNotify(queue, otherPlayerMesh as THREE.Group, delta); 
+         }
     });
 
-    // Update camera position
+    // Update camera position to follow the local player
     updateCameraPosition(camera, player.position);
 
-    // Update directional light position to follow player
-    directionalLight.position.x = player.position.x -200;
-    directionalLight.position.z = player.position.z;
-    directionalLight.target.position.set(player.position.x, 0, player.position.z);
+    // Update directional light target
+    lightTarget.position.copy(player.position);
+    directionalLight.target = lightTarget; // Ensure target is updated
+
+    // TODO: Add collision check for onPlayersDidTouch and call minigameManager.onPlayersDidTouch(...)
 
     renderer.render(scene, camera);
 }
 
+// Start connection and animation loop
+connectToServer();
 animate(); 
