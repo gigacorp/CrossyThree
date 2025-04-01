@@ -17,16 +17,110 @@ import { MoveCommand, Workspace, PlayerRepresentation, Toolbox } from './client-
 import { MinigameManager } from './minigames/minigameManager';
 import { ToolboxImpl } from './studio/ToolboxImpl';
 
+// Add these declarations at the top of the file, after imports
+let animationFrameId: number = 0;
+let room: Room<GameState> | null = null;
+
+// Event handler declarations
+function onWindowResize() {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    updateCameraFrustum(camera);
+}
+
+function onKeyDown(event: KeyboardEvent) {
+    if (isMoving) return;
+    if (event.repeat) return;
+    
+    let movement: { x: number; z: number } | null = null;
+    switch(event.key) {
+        case 'ArrowLeft':
+            movement = {x: -MOVE_DISTANCE, z: 0};
+            break;
+        case 'ArrowRight':
+            movement = {x: MOVE_DISTANCE, z: 0};
+            break;
+        case 'ArrowUp':
+            movement = {x: 0, z: -MOVE_DISTANCE};
+            break;
+        case 'ArrowDown':
+            movement = {x: 0, z: MOVE_DISTANCE};
+            break;
+    }
+    
+    if (movement) {
+        queueMove({
+            x: movement.x / MOVE_DISTANCE,
+            z: movement.z / MOVE_DISTANCE
+        });
+    }
+}
+
+function onKeyUp(event: KeyboardEvent) {
+    // No need for keyup handler currently
+}
+
+function onTouchStart(event: TouchEvent) {
+    touchStartX = event.touches[0].clientX;
+    touchStartY = event.touches[0].clientY;
+    touchStartTime = Date.now();
+    event.preventDefault();
+}
+
+function onTouchMove(event: TouchEvent) {
+    event.preventDefault();
+}
+
+function onTouchEnd(event: TouchEvent) {
+    const touchEndX = event.changedTouches[0].clientX;
+    const touchEndY = event.changedTouches[0].clientY;
+    const touchEndTime = Date.now();
+    
+    const deltaX = touchEndX - touchStartX;
+    const deltaY = touchEndY - touchStartY;
+    const deltaTime = touchEndTime - touchStartTime;
+    
+    if (Math.abs(deltaX) > SWIPE_THRESHOLD || Math.abs(deltaY) > SWIPE_THRESHOLD) {
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            if (deltaX > 0) {
+                queueMove({ x: 1, z: 0 });
+            } else {
+                queueMove({ x: -1, z: 0 });
+            }
+        } else {
+            if (deltaY > 0) {
+                queueMove({ x: 0, z: 1 });
+            } else {
+                queueMove({ x: 0, z: -1 });
+            }
+        }
+    } else if (deltaTime < TAP_THRESHOLD) {
+        queueMove({ x: 0, z: -1 });
+    }
+    
+    event.preventDefault();
+}
+
 // Scene setup
 const scene = new THREE.Scene();
+// scene.background = new THREE.Color(0x87CEEB); // REMOVE: Sky Blue background for testing
 const camera = createCamera();
+
+// Find the canvas element
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+
+// Check if canvas exists before creating renderer
+if (!canvas) {
+    console.error("CRITICAL: Could not find canvas element with ID 'gameCanvas'!");
+}
+
 const renderer = new THREE.WebGLRenderer({
+    canvas: canvas || undefined, // Pass canvas element directly
     antialias: true,
 });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-document.body.appendChild(renderer.domElement);
 
 // Add some instructions text (Will be overridden by minigame)
 // const instructionsText = createGroundText('Use arrow keys to move', new THREE.Vector3(0, 0, MAP_HALF_HEIGHT+10), '#ffffff')
@@ -39,16 +133,6 @@ document.body.appendChild(renderer.domElement);
 // if (finishText) {
 //     scene.add(finishText);
 // }
-
-// Handle window resize
-window.addEventListener('resize', () => {
-    // Update renderer size
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-
-    // Update camera aspect ratio and frustum
-    updateCameraFrustum(camera);
-});
 
 // Create grass field
 const grassField = createGrass();
@@ -122,7 +206,6 @@ const client = new Client(window.location.protocol === 'https:'
     ? `wss://${window.location.hostname}`
     : `ws://${window.location.hostname}:3000`);
 
-let room: Room<GameState> | null = null; 
 let playerId: string | null = null;
 // Update otherPlayers Map to store PlayerRepresentation
 const otherPlayers = new Map<string, PlayerRepresentation>(); 
@@ -354,127 +437,48 @@ const processMoveQueueWithNotify = (
     return stillMoving; 
 };
 
-// Add event listeners (keyboard)
-window.addEventListener('keydown', (event) => {
-    if (minigameManager.isActive()) {
-        // Potentially handle minigame-specific input here later
-        // For now, allow normal movement during minigame
-    }
-    
-    // Allow movement even if minigame is active for now
-    // if (isMoving || minigameManager.isActive()) return; // Prevent queuing new move if already moving OR minigame active
-
-    if (isMoving) return; // Original check: Prevent queuing new move if already moving
-
-    if (event.repeat) return; // Prevent key repeat
-    
-    let movement: { x: number; z: number } | null = null;
-    switch(event.key) {
-        case 'ArrowLeft':
-            movement = {x: -MOVE_DISTANCE, z: 0};
-            break;
-        case 'ArrowRight':
-            movement = {x: MOVE_DISTANCE, z: 0};
-            break;
-        case 'ArrowUp':
-            movement = {x: 0, z: -MOVE_DISTANCE};
-            break;
-        case 'ArrowDown':
-            movement = {x: 0, z: MOVE_DISTANCE};
-            break;
-    }
-    
-    if (movement) {
-        queueMove({
-            x: movement.x / MOVE_DISTANCE,
-            z: movement.z / MOVE_DISTANCE
-        });
-    }
-});
-
-// Handle touch start
-document.addEventListener('touchstart', (e) => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    touchStartTime = Date.now();
-    e.preventDefault(); // Prevent scrolling
-});
-
-// Handle touch move
-document.addEventListener('touchmove', (e) => {
-    e.preventDefault(); // Prevent scrolling
-});
-
-// Handle touch end
-document.addEventListener('touchend', (e) => {
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    const touchEndTime = Date.now();
-    
-    const deltaX = touchEndX - touchStartX;
-    const deltaY = touchEndY - touchStartY;
-    const deltaTime = touchEndTime - touchStartTime;
-    
-    // Check if it's a swipe
-    if (Math.abs(deltaX) > SWIPE_THRESHOLD || Math.abs(deltaY) > SWIPE_THRESHOLD) {
-        // Determine swipe direction
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            // Horizontal swipe
-            if (deltaX > 0) {
-                queueMove({ x: 1, z: 0 }); // Right
-            } else {
-                queueMove({ x: -1, z: 0 }); // Left
-            }
-        } else {
-            // Vertical swipe
-            if (deltaY > 0) {
-                queueMove({ x: 0, z: 1 }); // Down
-            } else {
-                queueMove({ x: 0, z: -1 }); // Up
-            }
-        }
-    } else if (deltaTime < TAP_THRESHOLD) {
-        // It's a tap, always move up
-        queueMove({ x: 0, z: -1 }); // Up
-    }
-    
-    e.preventDefault(); // Prevent scrolling
-});
-
-// Game loop
+// Update the animate function to remove logging
 function animate() {
-    requestAnimationFrame(animate);
+    animationFrameId = requestAnimationFrame(animate);
     const delta = clock.getDelta();
+
+    // // --- REMOVE DEBUG LOGS ---
+    // // console.log(`Camera Position: x=${camera.position.x.toFixed(2)}, y=${camera.position.y.toFixed(2)}, z=${camera.position.z.toFixed(2)}`);
+    // // if (localPlayer) {
+    // //     console.log(`Player Position: x=${localPlayer.mesh.position.x.toFixed(2)}, y=${localPlayer.mesh.position.y.toFixed(2)}, z=${localPlayer.mesh.position.z.toFixed(2)}`);
+    // // }
+    // // console.log("Scene Children Count:", scene.children.length);
+    // // --- END DEBUG LOGS ---
 
     // Get current game state (can be null initially)
     const currentClientState = getCurrentGameState(); 
 
     // Update minigame manager IF active AND state is available
     if (minigameManager.isActive() && currentClientState) {
-        minigameManager.update(delta); // Manager uses internal ref now
+        minigameManager.update(delta);
     } 
     
     // Process movement for local player if representation exists
     if (localPlayer) {
         isMoving = processMoveQueueWithNotify(moveQueue, localPlayer.mesh, delta);
     } else {
-        isMoving = false; // Not moving if no local player rep yet
+        isMoving = false;
     }
 
-    // Process movement for other players using their mesh from the representation
+    // Process movement for other players
     otherPlayersMoveQueues.forEach((queue, id) => {
-         const playerRep = otherPlayers.get(id);
-         if (playerRep) {
-             processMoveQueueWithNotify(queue, playerRep.mesh, delta); 
-         }
+        const playerRep = otherPlayers.get(id);
+        if (playerRep) {
+            processMoveQueueWithNotify(queue, playerRep.mesh, delta);
+        }
     });
 
-    // Update camera position to follow the local player's mesh if available
+    // Update camera position
     if (localPlayer) {
         updateCameraPosition(camera, localPlayer.mesh.position);
     }
 
-    // Update directional light position relative to local player's mesh if available
+    // Update directional light position
     if (localPlayer) {
         directionalLight.position.x = localPlayer.mesh.position.x - 200;
         directionalLight.position.z = localPlayer.mesh.position.z;
@@ -485,6 +489,58 @@ function animate() {
     renderer.render(scene, camera);
 }
 
+// Update the cleanup function to be more specific
+function cleanupGame() {
+    // Stop the animation loop
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+    }
+
+    // Disconnect from the server
+    if (room) {
+        room.leave();
+    }
+
+    // Clean up Three.js resources
+    if (renderer) {
+        renderer.dispose();
+    }
+    if (scene) {
+        scene.traverse((object) => {
+            if (object instanceof THREE.Mesh) {
+                object.geometry.dispose();
+                if (object.material instanceof THREE.Material) {
+                    object.material.dispose();
+                } else if (Array.isArray(object.material)) {
+                    object.material.forEach(material => material.dispose());
+                }
+            }
+        });
+    }
+
+    // Clear event listeners
+    window.removeEventListener('resize', onWindowResize);
+    window.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('keyup', onKeyUp);
+    window.removeEventListener('touchstart', onTouchStart);
+    window.removeEventListener('touchmove', onTouchMove);
+    window.removeEventListener('touchend', onTouchEnd);
+}
+
+// Add event listeners
+window.addEventListener('resize', onWindowResize);
+window.addEventListener('keydown', onKeyDown);
+window.addEventListener('keyup', onKeyUp);
+window.addEventListener('touchstart', onTouchStart);
+window.addEventListener('touchmove', onTouchMove);
+window.addEventListener('touchend', onTouchEnd);
+
 // Start connection and animation loop
 connectToServer();
-animate(); 
+animate();
+
+// Add exit button handler
+document.getElementById('exitButton')?.addEventListener('click', () => {
+    cleanupGame();
+    window.location.href = '/';
+}); 
