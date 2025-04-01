@@ -443,9 +443,16 @@ function animate() {
     // Update camera position to follow the local player
     updateCameraPosition(camera, player.position);
 
-    // Update directional light target
+    // Update directional light position relative to player (like previous code)
+    directionalLight.position.x = player.position.x - 200;
+    directionalLight.position.z = player.position.z; // Keep Z aligned or add offset if needed
+    // Update directional light target position
     lightTarget.position.copy(player.position);
-    directionalLight.target = lightTarget; // Ensure target is updated
+    // No need to set directionalLight.target again, it's already set to lightTarget
+    // directionalLight.target = lightTarget;
+
+    // Update the target's matrix world explicitly (optional, but can sometimes help)
+    lightTarget.updateMatrixWorld();
 
     // TODO: Add collision check for onPlayersDidTouch and call minigameManager.onPlayersDidTouch(...)
 
