@@ -18,7 +18,7 @@ export interface PlayerRepresentation {
 
 // Add other client-specific types here in the future if needed 
 
-export interface GameState {
+export interface Workspace {
     scene: THREE.Scene;
     localPlayer: PlayerRepresentation; // Use the new type
     otherPlayers: PlayerRepresentation[]; // Use the new type

@@ -17,7 +17,7 @@ Constants:
 - MAP_HALF_HEIGHT
 - BLOCK_SIZE
 
-GameState:
+Workspace:
 - scene
 - localPlayer
 - otherPlayers
@@ -28,5 +28,5 @@ Minigame interface
 - onPlayerDidMove(:player)
 - onPlayersDidTouch(:player1, player2)
 - load(:scene)
-- start(:gameState)
-- update(:delta, :gameState)
+- start(:workspace)
+- update(:delta, :workspace)

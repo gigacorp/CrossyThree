@@ -1,5 +1,5 @@
 import { Scene, Object3D } from "three";
-import { GameState } from "./client-types"; // Assuming GameState is defined here
+import { Workspace } from "./client-types";
 
 export interface Minigame {
     /** Instructions displayed to the player at the start */
@@ -9,10 +9,10 @@ export interface Minigame {
     load: (scene: Scene) => void;
 
     /** Called when the minigame officially begins */
-    start: (gameState: GameState) => void;
+    start: (workspace: Workspace) => void;
 
     /** Called every frame to update the minigame state */
-    update: (delta: number, gameState: GameState) => void;
+    update: (delta: number, workspace: Workspace) => void;
 
     /** Called when the minigame ends */
     end: () => void;

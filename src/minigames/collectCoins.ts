@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Minigame } from "../minigame";
-import { GameState } from "../client-types";
+import { Workspace } from "../client-types";
 import { BLOCK_SIZE, MAP_WIDTH, MAP_HEIGHT } from "../constants";
 
 // --- Particle Effect Helper --- 
@@ -76,12 +76,12 @@ export class CollectCoinsMinigame implements Minigame {
         console.log("CollectCoinsMinigame assets loaded (if any).");
     }
 
-    start(gameState: GameState): void {
-        if (this.isActive || !gameState || !gameState.scene) {
-            console.error("Cannot start CollectCoinsMinigame: Already active or invalid gameState.");
+    start(workspace: Workspace): void {
+        if (this.isActive || !workspace || !workspace.scene) {
+            console.error("Cannot start CollectCoinsMinigame: Already active or invalid workspace.");
             return;
         }
-        this.sceneRef = gameState.scene;
+        this.sceneRef = workspace.scene;
         this.isActive = true;
         this.coins = [];
         this.activeEffects = []; // Clear effects on start
@@ -101,11 +101,11 @@ export class CollectCoinsMinigame implements Minigame {
         }
 
         // Move player to start position (if needed)
-        // gameState.localPlayer.position.copy(this.startPosition);
+        // workspace.localPlayer.position.copy(this.startPosition);
         console.log("Collect Coins Minigame Started!");
     }
 
-    update(delta: number, gameState: GameState): void {
+    update(delta: number, workspace: Workspace): void {
         if (!this.isActive) return;
 
         // Animate coins (e.g., rotate)

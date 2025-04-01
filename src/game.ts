@@ -12,15 +12,14 @@ import {
     SWIPE_THRESHOLD, TAP_THRESHOLD, BLOCK_SIZE,
     ROTATION_LERP_FACTOR
 } from './constants';
-import { GameState as ColyseusGameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand } from './schema'; // Renamed Colyseus GameState
-import { MoveCommand, GameState as ClientGameState, PlayerRepresentation } from './client-types'; // Import client-side GameState definition and PlayerRepresentation
+import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand } from './schema';
+import { MoveCommand, Workspace, PlayerRepresentation } from './client-types';
 import { MinigameManager } from './minigames/minigameManager'; // Import MinigameManager
 
 // Scene setup
 const scene = new THREE.Scene();
 const camera = createCamera();
 const renderer = new THREE.WebGLRenderer({
-    // alpha: true,
     antialias: true,
 });
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -65,7 +64,7 @@ focusOnPosition(camera, localPlayerMesh.position); // Focus camera on initial me
 const minigameManager = new MinigameManager();
 
 // Function to create the ClientGameState object
-function getCurrentGameState(): ClientGameState | null { // Return null if localPlayer not set
+function getCurrentGameState(): Workspace | null { // Return null if localPlayer not set
     if (!localPlayer) return null;
     return {
         scene: scene,
@@ -118,7 +117,7 @@ const client = new Client(window.location.protocol === 'https:'
     ? `wss://${window.location.hostname}`
     : `ws://${window.location.hostname}:3000`);
 
-let room: Room<ColyseusGameState> | null = null; 
+let room: Room<GameState> | null = null; 
 let playerId: string | null = null;
 // Update otherPlayers Map to store PlayerRepresentation
 const otherPlayers = new Map<string, PlayerRepresentation>(); 
@@ -126,7 +125,7 @@ const otherPlayersMoveQueues = new Map<string, MoveCommand[]>();
 const clock = new THREE.Clock(); 
 
 // Function to synchronize local player meshes with server state
-function syncPlayerState(state: ColyseusGameState) { 
+function syncPlayerState(state: GameState) { 
     if (!playerId || !room) { 
         console.warn('syncPlayerState called before playerId or room was set. Skipping update.');
         return; 
@@ -189,7 +188,7 @@ function syncPlayerState(state: ColyseusGameState) {
 // Connect to server
 async function connectToServer() {
     try {
-        room = await client.joinOrCreate<ColyseusGameState>('game_room'); 
+        room = await client.joinOrCreate<GameState>('game_room'); 
         console.log('Connected to room:', room.roomId, 'SessionId:', room.sessionId);
         
         // Update room ID display

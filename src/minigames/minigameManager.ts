@@ -1,11 +1,11 @@
 import { Scene, Object3D, Vector3 } from "three";
 import { Minigame } from "../minigame";
-import { GameState } from "../client-types"; // Assuming GameState is defined here
+import { Workspace } from "../client-types";
 import { CollectCoinsMinigame } from "./collectCoins"; // Import new minigame
 
 export class MinigameManager {
     private currentMinigame: Minigame | null = null;
-    private gameStateRef: GameState | null = null; // Reference to the main game state
+    private workspaceRef: Workspace | null = null; // Reference to the main game state
     private sceneRef: Scene | null = null; // Reference to the scene
     private minigameType: string | null = null;
 
@@ -13,18 +13,18 @@ export class MinigameManager {
         // Initial state is set when starting a minigame
     }
 
-    startMinigame(type: string, gameState: GameState): void {
+    startMinigame(type: string, workspace: Workspace): void {
         if (this.currentMinigame) {
             console.warn("Minigame already in progress. End the current one first.");
             return;
         }
-        if (!gameState || !gameState.scene) {
-            console.error("Cannot start minigame without valid GameState and Scene.");
+        if (!workspace || !workspace.scene) {
+            console.error("Cannot start minigame without valid workspace and Scene.");
             return;
         }
 
-        this.gameStateRef = gameState;
-        this.sceneRef = gameState.scene;
+        this.workspaceRef = workspace;
+        this.sceneRef = workspace.scene;
         this.minigameType = type;
 
         console.log(`Attempting to start minigame: ${type}`);
@@ -36,7 +36,7 @@ export class MinigameManager {
             // Add cases for other minigame types here
             default:
                 console.error(`Unknown minigame type: ${type}`);
-                this.gameStateRef = null; // Clear references if failed
+                this.workspaceRef = null; // Clear references if failed
                 this.sceneRef = null;
                 this.minigameType = null;
                 return;
@@ -46,16 +46,16 @@ export class MinigameManager {
         this.currentMinigame.load(this.sceneRef);
 
         // Then start the game logic
-        this.currentMinigame.start(this.gameStateRef);
+        this.currentMinigame.start(this.workspaceRef);
 
         // Optional: Move player to start position for this specific minigame
         if (this.currentMinigame instanceof CollectCoinsMinigame) {
             const startPos = this.currentMinigame.getStartPosition();
              console.log(`Minigame requested player start at: ${startPos.toArray().join(", ")}`);
-             // Example: gameState.teleportPlayer(gameState.localPlayer.uuid, startPos);
+             // Example: workspace.teleportPlayer(workspace.localPlayer.uuid, startPos);
              // For now, just log - player positioning needs careful handling
-             if (this.gameStateRef.localPlayer) {
-                 this.gameStateRef.localPlayer.mesh.position.copy(startPos);
+             if (this.workspaceRef.localPlayer) {
+                 this.workspaceRef.localPlayer.mesh.position.copy(startPos);
              }
         }
 
@@ -63,13 +63,13 @@ export class MinigameManager {
     }
 
     update(delta: number): void {
-        if (!this.currentMinigame || !this.gameStateRef) return;
+        if (!this.currentMinigame || !this.workspaceRef) return;
 
         // Update the minigame internal state
-        this.currentMinigame.update(delta, this.gameStateRef);
+        this.currentMinigame.update(delta, this.workspaceRef);
 
-        // Check conditions using the localPlayer from GameState
-        const localPlayer = this.gameStateRef.localPlayer;
+        // Check conditions using the localPlayer from workspace
+        const localPlayer = this.workspaceRef.localPlayer;
         if (localPlayer) { 
              const playerPosition = localPlayer.mesh.position;
              let shouldEnd = false;
@@ -92,7 +92,7 @@ export class MinigameManager {
                  this.endMinigame();
              }
         } else {
-             console.warn("Local player object not found in GameState during MinigameManager update.");
+             console.warn("Local player object not found in workspace during MinigameManager update.");
         }
     }
 
@@ -102,7 +102,7 @@ export class MinigameManager {
         console.log(`Ending minigame: ${this.minigameType}`);
         this.currentMinigame.end();
         this.currentMinigame = null;
-        this.gameStateRef = null;
+        this.workspaceRef = null;
         this.sceneRef = null;
         this.minigameType = null;
         // TODO: Return player to a default state or position?
