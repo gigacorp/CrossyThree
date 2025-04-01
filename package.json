@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Multiplayer 3D crossy road style game using Three.js and Colyseus",
   "main": "dist/server.js",
+  "type": "module",
   "scripts": {
     "start": "node dist/server.js",
     "build:local": "npm run clean && tsc && webpack --mode production --config webpack.config.js",

@@ -1,18 +1,24 @@
-const path = require('path');
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-module.exports = {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export default {
     mode: 'development',
-    entry: './src/game.ts',
+    entry: {
+        game: './src/game.ts',
+        index: './src/start.ts'
+    },
     output: {
-        filename: 'bundle.js',
+        filename: '[name].js',
         path: path.resolve(__dirname, 'dist'),
-        publicPath: '/dist/'
     },
     devtool: 'inline-source-map',
     module: {
         rules: [
             {
-                test: /\.tsx?$/,
+                test: /\.ts$/,
                 use: 'ts-loader',
                 exclude: /node_modules/,
             },
@@ -20,65 +26,52 @@ module.exports = {
     },
     devServer: {
         static: {
-            directory: __dirname
+            directory: path.join(__dirname, '/'),
         },
-        devMiddleware: {
-             publicPath: '/dist/' 
-        },
-        liveReload: true,
+        compress: true,
         port: 8080,
+        hot: true,
         proxy: [
             {
-                context: ['/colyseus', '/matchmake'],
+                context: ['/'],
                 target: 'http://localhost:3000',
                 ws: true
             }
         ]
     },
     resolve: {
-        extensions: ['.tsx', '.ts', '.js'],
+        extensions: ['.ts', '.js'],
         fallback: {
             "fs": false,
-            "net": false,
-            "tls": false,
+            "path": false,
             "crypto": false,
             "stream": false,
-            "path": false,
-            "os": false,
+            "buffer": false,
+            "util": false,
+            "url": false,
             "http": false,
             "https": false,
             "zlib": false,
-            "url": false,
-            "buffer": false,
-            "util": false,
-            "assert": false,
-            "querystring": false,
-            "punycode": false,
-            "process": false,
+            "net": false,
+            "tls": false,
             "dns": false,
             "dgram": false,
             "child_process": false,
+            "os": false,
+            "assert": false,
+            "querystring": false,
+            "punycode": false,
+            "string_decoder": false,
+            "constants": false,
+            "process": false,
+            "events": false,
+            "timers": false,
+            "domain": false,
             "module": false,
+            "vm": false,
             "worker_threads": false,
             "perf_hooks": false,
-            "async_hooks": false,
-            "diagnostics_channel": false,
-            "events": false,
-            "string_decoder": false,
-            "timers": false,
-            "v8": false,
-            "vm": false,
-            "wasi": false,
-            "inspector": false,
-            "test": false,
-            "readline": false,
-            "repl": false,
-            "trace_events": false,
-            "tty": false,
-            "domain": false,
-            "constants": false,
-            "os-browserify": false,
-            "@pm2/io": false
+            "async_hooks": false
         }
-    },
+    }
 }; 

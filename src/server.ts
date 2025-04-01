@@ -3,8 +3,12 @@ import { createServer } from 'http';
 import { Server, Room, Client } from 'colyseus';
 import { monitor } from '@colyseus/monitor';
 import path from 'path';
-import { MAP_HALF_HEIGHT, BLOCK_SIZE } from './constants';
-import { Player, GameState, MoveMessage, PlayerMoveCommand } from './schema';
+import { fileURLToPath } from 'url';
+import { MAP_HALF_HEIGHT, BLOCK_SIZE } from './constants.js';
+import { Player, GameState, MoveMessage, PlayerMoveCommand } from './schema.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // __dirname is available directly in CommonJS modules
 // When running node dist/server.js, __dirname is /path/to/project/dist

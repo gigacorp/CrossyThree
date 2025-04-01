@@ -3,7 +3,7 @@
     /* Base Options */
     "esModuleInterop": true, // Enables compatibility with CommonJS modules
     "skipLibCheck": true, // Skip type checking of declaration files
-    "target": "ES2016", // Target latest ECMAScript features supported by modern browsers/Node
+    "target": "ES2020", // Target latest ECMAScript features supported by modern browsers/Node
     "allowJs": true, // Allow JavaScript files to be compiled
     "resolveJsonModule": true, // Allows importing JSON files
     "moduleDetection": "force", // Treat files as modules even without imports/exports
@@ -19,7 +19,7 @@
     // "alwaysStrict": true,                  /* Parse in strict mode and emit "use strict" for each source file. */
 
     /* Module Resolution Options */
-    "module": "CommonJS", // Use CommonJS for Node.js compatibility (server)
+    "module": "ES2020", // Use ES2020 for Node.js compatibility (server)
     "moduleResolution": "node", // Explicitly use Node.js resolution
     "outDir": "./dist", // Redirect output structure to the directory
     "rootDir": "./src", // Specify src as the root of input files
@@ -36,10 +36,12 @@
     /* Other Options */
     "forceConsistentCasingInFileNames": true, // Disallow inconsistently-cased references to the same file.
     "allowSyntheticDefaultImports": true, // Allow default imports from modules with no default export
-    "lib": ["ESNext", "DOM"], // Specify library files to be included in the compilation.
+    "lib": ["ES2020", "DOM", "DOM.Iterable"], // Specify library files to be included in the compilation.
+    "isolatedModules": true,
+    "noEmit": false
   },
   "include": [
-    "src/**/*.ts" // Only include files within src
+    "src/**/*" // Only include files within src
   ],
   "exclude": [
     "node_modules",

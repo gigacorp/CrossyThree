@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrossyThree Multiplayer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            cursor: pointer;
+            touch-action: none; /* Prevent default touch actions */
+        }
+        canvas {
+            display: block;
+            cursor: pointer;
+        }
+        #roomId, #playerCount {
+            position: fixed;
+            right: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        #roomId {
+            top: 20px;
+        }
+        #playerCount {
+            top: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div id="roomId">Room: -</div>
+    <div id="playerCount">Players: 0</div>
+    <!-- Game Script -->
+    <script src="dist/game.js"></script>
+</body>
+</html> 
