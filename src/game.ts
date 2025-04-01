@@ -13,7 +13,7 @@ import {
     ROTATION_LERP_FACTOR
 } from './constants';
 import { GameState as ColyseusGameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand } from './schema'; // Renamed Colyseus GameState
-import { MoveCommand, GameState as ClientGameState } from './client-types'; // Import client-side GameState definition
+import { MoveCommand, GameState as ClientGameState, PlayerRepresentation } from './client-types'; // Import client-side GameState definition and PlayerRepresentation
 import { MinigameManager } from './minigames/minigameManager'; // Import MinigameManager
 
 // Scene setup
@@ -55,25 +55,27 @@ const grassField = createGrass();
 scene.add(grassField);
 
 // Player setup
-const player = createPlayer();
-player.position.set(0, 0, MAP_HALF_HEIGHT-BLOCK_SIZE/2); // Start at the bottom of the map
-focusOnPosition(camera, player.position); // Focus camera on player's initial position
-scene.add(player);
+const localPlayerMesh = createPlayer(); // Create the mesh first
+let localPlayer: PlayerRepresentation | null = null; // Will be populated once ID is received
+localPlayerMesh.position.set(0, 0, MAP_HALF_HEIGHT-BLOCK_SIZE/2); 
+scene.add(localPlayerMesh); // Add mesh to scene
+focusOnPosition(camera, localPlayerMesh.position); // Focus camera on initial mesh position
 
 // Minigame Setup
 const minigameManager = new MinigameManager();
 
 // Function to create the ClientGameState object
-function getCurrentGameState(): ClientGameState {
+function getCurrentGameState(): ClientGameState | null { // Return null if localPlayer not set
+    if (!localPlayer) return null;
     return {
         scene: scene,
-        localPlayer: player,
+        localPlayer: localPlayer, // Use the full representation
         otherPlayers: Array.from(otherPlayers.values()) // Convert Map values to Array
     };
 }
 
-// Call minigame manager when local player spawns (initially)
-minigameManager.onPlayerDidSpawn(player); 
+// Call minigame manager when local player spawns (now happens when ID received)
+// minigameManager.onPlayerDidSpawn(player); // Removed - Handled later
 
 // Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -93,7 +95,7 @@ directionalLight.shadow.camera.bottom = -400;
 directionalLight.target.updateMatrixWorld();
 
 const lightTarget = new THREE.Object3D();
-lightTarget.position.copy(player.position);
+lightTarget.position.copy(localPlayerMesh.position);
 scene.add(lightTarget);
 directionalLight.target = lightTarget;
 
@@ -116,15 +118,16 @@ const client = new Client(window.location.protocol === 'https:'
     ? `wss://${window.location.hostname}`
     : `ws://${window.location.hostname}:3000`);
 
-let room: Room<ColyseusGameState> | null = null; // Use the Renamed Colyseus GameState here
+let room: Room<ColyseusGameState> | null = null; 
 let playerId: string | null = null;
-const otherPlayers = new Map<string, THREE.Group>(); // Map sessionId to player mesh
-const otherPlayersMoveQueues = new Map<string, MoveCommand[]>(); // Type the move queue map
-const clock = new THREE.Clock(); // Add clock for delta time
+// Update otherPlayers Map to store PlayerRepresentation
+const otherPlayers = new Map<string, PlayerRepresentation>(); 
+const otherPlayersMoveQueues = new Map<string, MoveCommand[]>(); 
+const clock = new THREE.Clock(); 
 
 // Function to synchronize local player meshes with server state
-function syncPlayerState(state: ColyseusGameState) { // Use Renamed Colyseus GameState
-    if (!playerId || !room) { // Also check if room exists
+function syncPlayerState(state: ColyseusGameState) { 
+    if (!playerId || !room) { 
         console.warn('syncPlayerState called before playerId or room was set. Skipping update.');
         return; 
     }
@@ -137,36 +140,46 @@ function syncPlayerState(state: ColyseusGameState) { // Use Renamed Colyseus Gam
         playersInServerState.add(id); 
 
         if (id === playerId) { 
+            // Ensure local player representation is initialized if not already
+            if (!localPlayer) {
+                localPlayer = { id: playerId, mesh: localPlayerMesh };
+                console.log(`Initialized local PlayerRepresentation for ID: ${playerId}`);
+                // Now notify minigame manager about local player spawn
+                minigameManager.onPlayerDidSpawn(localPlayer.mesh);
+                focusOnPosition(camera, localPlayer.mesh.position);
+            }
             return;
         }
 
-        let otherPlayerMesh = otherPlayers.get(id);
-        let isNewPlayer = false; // Flag to track if player is new
-        if (!otherPlayerMesh) {
-            isNewPlayer = true; // Mark as new
-            console.log(`Sync: Creating mesh for player ${id}`);
-            otherPlayerMesh = createPlayer();
-            scene.add(otherPlayerMesh);
-            otherPlayers.set(id, otherPlayerMesh);
+        // Handle other players
+        let otherPlayerRep = otherPlayers.get(id);
+        let isNewPlayer = false; 
+        if (!otherPlayerRep) {
+            isNewPlayer = true; 
+            console.log(`Sync: Creating representation for player ${id}`);
+            const newMesh = createPlayer(); // Create a new mesh
+            otherPlayerRep = { id: id, mesh: newMesh }; // Create representation
+            scene.add(otherPlayerRep.mesh); // Add mesh to scene
+            otherPlayers.set(id, otherPlayerRep); // Store representation
             if (!otherPlayersMoveQueues.has(id)) {
                 otherPlayersMoveQueues.set(id, []);
             }
         }
-        // Update position and rotation from schema
-        otherPlayerMesh.position.set(playerSchema.x, playerSchema.y, playerSchema.z);
-        otherPlayerMesh.rotation.y = playerSchema.rotation;
+        // Update position and rotation from schema using the mesh inside the representation
+        otherPlayerRep.mesh.position.set(playerSchema.x, playerSchema.y, playerSchema.z);
+        otherPlayerRep.mesh.rotation.y = playerSchema.rotation;
 
-        // If it's a new player, notify the minigame manager
+        // If it's a new player, notify the minigame manager with the mesh
         if (isNewPlayer) {
-            minigameManager.onPlayerDidSpawn(otherPlayerMesh);
+            minigameManager.onPlayerDidSpawn(otherPlayerRep.mesh);
         }
     });
 
-    // Remove local players that are NOT in the current server state
-    otherPlayers.forEach((otherPlayerMesh, id) => {
+    // Remove local representations for players NOT in the current server state
+    otherPlayers.forEach((playerRep, id) => { // Iterate over representations
         if (!playersInServerState.has(id)) { 
-            console.log(`Sync: Removing mesh for player ${id} (not in server state)`);
-            scene.remove(otherPlayerMesh);
+            console.log(`Sync: Removing representation for player ${id} (not in server state)`);
+            scene.remove(playerRep.mesh); // Remove the mesh
             otherPlayers.delete(id);
             otherPlayersMoveQueues.delete(id);
         }
@@ -176,8 +189,7 @@ function syncPlayerState(state: ColyseusGameState) { // Use Renamed Colyseus Gam
 // Connect to server
 async function connectToServer() {
     try {
-        // Explicitly type the room on join/create
-        room = await client.joinOrCreate<ColyseusGameState>('game_room'); // Use Renamed Colyseus GameState
+        room = await client.joinOrCreate<ColyseusGameState>('game_room'); 
         console.log('Connected to room:', room.roomId, 'SessionId:', room.sessionId);
         
         // Update room ID display
@@ -186,21 +198,34 @@ async function connectToServer() {
             roomIdElement.textContent = `Room: ${room.roomId}`;
         }
         
-        // Listen for player ID and process initial state *after* receiving ID
         room.onMessage('playerId', (id: string) => { 
             playerId = id;
             console.log('Received player ID:', playerId);
 
-            if (room) { 
+            // Initialize localPlayer Representation now that we have the ID
+            if (!localPlayer) { // Check prevents re-initialization on reconnect/message duplication
+                localPlayer = { id: playerId, mesh: localPlayerMesh };
+                 console.log(`Initialized local PlayerRepresentation from playerId message: ${playerId}`);
+                 // Notify minigame manager about local player spawn
+                 minigameManager.onPlayerDidSpawn(localPlayer.mesh);
+                 focusOnPosition(camera, localPlayer.mesh.position); // Ensure camera focuses after ID received
+            }
+
+            if (room && localPlayer) { // Ensure room and localPlayer exist
                  console.log('Processing initial state after receiving playerId...');
                  syncPlayerState(room.state); // Initial sync
                  console.log('Finished processing initial state.');
 
                  // START THE MINIGAME HERE
                  console.log("Attempting to start default minigame...");
-                 minigameManager.startMinigame('collectCoins', getCurrentGameState());
+                 const currentGameState = getCurrentGameState(); // Get current state
+                 if (currentGameState) { // Check if state is available
+                     minigameManager.startMinigame('collectCoins', currentGameState); 
+                 } else {
+                     console.error("Cannot start minigame: ClientGameState is null.");
+                 }
             } else {
-                console.error('Room object became null unexpectedly after join.')
+                console.error('Room object or localPlayer became null unexpectedly after join/receiving ID.');
             }
         });
 
@@ -223,13 +248,13 @@ async function connectToServer() {
     }
 }
 
-function removeOtherPlayer(playerIdToRemove: string) { // Renamed parameter
+function removeOtherPlayer(playerIdToRemove: string) { 
     console.log(`Removing player ${playerIdToRemove} due to playerLeft message.`);
-    const otherPlayer = otherPlayers.get(playerIdToRemove);
-    if (otherPlayer) {
-        scene.remove(otherPlayer);
+    const playerRep = otherPlayers.get(playerIdToRemove); // Get representation
+    if (playerRep) {
+        scene.remove(playerRep.mesh); // Remove mesh from representation
         otherPlayers.delete(playerIdToRemove);
-        otherPlayersMoveQueues.delete(playerIdToRemove); // Remove move queue too
+        otherPlayersMoveQueues.delete(playerIdToRemove); 
     }
 }
 
@@ -241,19 +266,19 @@ function updatePlayerCount(count: number) {
 }
 
 function queueOtherPlayerMove(playerId: string, movement: { x: number; z: number }, startPos: { x: number; z: number }, targetPos: { x: number; z: number }) {
-    let otherPlayer = otherPlayers.get(playerId);
-    if (!otherPlayer) {
-        // Should ideally not happen if syncPlayerState runs first, but good failsafe
-        console.warn(`queueOtherPlayerMove: Player ${playerId} mesh not found. Creating.`);
-        otherPlayer = createPlayer(); 
-        scene.add(otherPlayer);
-        otherPlayers.set(playerId, otherPlayer);
-        otherPlayersMoveQueues.set(playerId, []); // Ensure queue exists
+    let playerRep = otherPlayers.get(playerId); // Get representation
+    if (!playerRep) {
+        console.warn(`queueOtherPlayerMove: Player representation ${playerId} not found. Creating.`);
+        const newMesh = createPlayer(); 
+        playerRep = { id: playerId, mesh: newMesh }; // Create representation
+        scene.add(playerRep.mesh); // Add mesh
+        otherPlayers.set(playerId, playerRep); // Store representation
+        otherPlayersMoveQueues.set(playerId, []); 
     }
 
     const moveQueue = otherPlayersMoveQueues.get(playerId);
-    if (moveQueue) { // Check if queue exists
-        const command: MoveCommand = { // Use the interface
+    if (moveQueue) { 
+        const command: MoveCommand = { 
             movement,
             startPos,
             targetPos,
@@ -265,17 +290,17 @@ function queueOtherPlayerMove(playerId: string, movement: { x: number; z: number
     }
 }
 
-// Modify the queueMove function to send movement to server
+// Modify the queueMove function 
 function queueMove(movement: { x: number; z: number }) {
-    if (!room || !playerId) {
-        console.warn('Cannot queue move, room or playerId not available.');
+    if (!room || !localPlayer) { // Check for localPlayer representation
+        console.warn('Cannot queue move, room or localPlayer representation not available.');
         return;
     }
     
-    // Determine start position based on the *local* player's move queue
+    // Use localPlayer.mesh position if queue is empty
     const startPos = moveQueue.length > 0 
         ? moveQueue[moveQueue.length - 1].targetPos 
-        : { x: player.position.x, z: player.position.z }; // Use global `player` mesh position if queue is empty
+        : { x: localPlayer.mesh.position.x, z: localPlayer.mesh.position.z }; 
     
     const targetPos = {
         x: startPos.x + movement.x * MOVE_DISTANCE,
@@ -294,38 +319,35 @@ function queueMove(movement: { x: number; z: number }) {
     };
     moveQueue.push(command); 
 
-    // Send movement intention to server using the MoveMessage type
+    // Send movement intention to server
     const movePayload: MoveMessage = {
-        movement, // Send the original direction vector
+        movement,
         startPos,
         targetPos
     };
     room.send('move', movePayload);
 }
 
-// Override processMoveQueue to notify minigame manager on move completion
-const originalProcessMoveQueue = processMoveQueue; // Keep reference to original
+// Override processMoveQueue to notify minigame manager
+const originalProcessMoveQueue = processMoveQueue; 
 
-// New wrapper function with corrected signature and logic
+// Wrapper function remains the same signature, takes Group
 const processMoveQueueWithNotify = (
     queue: MoveCommand[], 
-    object: THREE.Group, // Expecting a Group
-    delta: number // Delta is passed to the wrapper, but not used in the call below
-): boolean => { // Returns boolean: true if still moving, false otherwise
+    object: THREE.Group, 
+    delta: number 
+): boolean => {
     const wasMoving = queue.length > 0;
     
-    // Call the original function with 2 arguments based on the persistent linter error
-    originalProcessMoveQueue(queue, object); 
+    originalProcessMoveQueue(queue, object); // Calls original with 2 args
     
     const stillMoving = queue.length > 0;
     const justFinishedMoving = wasMoving && !stillMoving;
 
     if (justFinishedMoving) {
-        // Notify minigame manager that this object finished a move
-        console.log(`Player ${object.uuid} finished moving.`); 
-        minigameManager.onPlayerDidMove(object);
+        minigameManager.onPlayerDidMove(object); // Pass the mesh
     }
-    return stillMoving; // Return whether the queue still has moves
+    return stillMoving; 
 };
 
 // Add event listeners (keyboard)
@@ -420,41 +442,44 @@ function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
 
-    // Construct current GameState (needed for minigame update)
-    const currentClientState = getCurrentGameState();
+    // Get current game state (can be null initially)
+    const currentClientState = getCurrentGameState(); 
 
-    // Update minigame manager IF active
-    if (minigameManager.isActive()) {
-        // Correct call: MinigameManager.update only needs delta
-        minigameManager.update(delta); 
+    // Update minigame manager IF active AND state is available
+    if (minigameManager.isActive() && currentClientState) {
+        minigameManager.update(delta); // Manager uses internal ref now
     } 
     
-    // Process movement for local player using the wrapper (passing delta to wrapper)
-    isMoving = processMoveQueueWithNotify(moveQueue, player as THREE.Group, delta);
+    // Process movement for local player if representation exists
+    if (localPlayer) {
+        isMoving = processMoveQueueWithNotify(moveQueue, localPlayer.mesh, delta);
+    } else {
+        isMoving = false; // Not moving if no local player rep yet
+    }
 
-    // Process movement for other players using the wrapper (passing delta to wrapper)
+    // Process movement for other players using their mesh from the representation
     otherPlayersMoveQueues.forEach((queue, id) => {
-         const otherPlayerMesh = otherPlayers.get(id);
-         if (otherPlayerMesh) {
-             processMoveQueueWithNotify(queue, otherPlayerMesh as THREE.Group, delta); 
+         const playerRep = otherPlayers.get(id);
+         if (playerRep) {
+             processMoveQueueWithNotify(queue, playerRep.mesh, delta); 
          }
     });
 
-    // Update camera position to follow the local player
-    updateCameraPosition(camera, player.position);
+    // Update camera position to follow the local player's mesh if available
+    if (localPlayer) {
+        updateCameraPosition(camera, localPlayer.mesh.position);
+    }
 
-    // Update directional light position relative to player (like previous code)
-    directionalLight.position.x = player.position.x - 200;
-    directionalLight.position.z = player.position.z; // Keep Z aligned or add offset if needed
-    // Update directional light target position
-    lightTarget.position.copy(player.position);
-    // No need to set directionalLight.target again, it's already set to lightTarget
-    // directionalLight.target = lightTarget;
-
-    // Update the target's matrix world explicitly (optional, but can sometimes help)
-    lightTarget.updateMatrixWorld();
-
-    // TODO: Add collision check for onPlayersDidTouch and call minigameManager.onPlayersDidTouch(...)
+    // Update directional light position relative to local player's mesh if available
+    if (localPlayer) {
+        directionalLight.position.x = localPlayer.mesh.position.x - 200;
+        directionalLight.position.z = localPlayer.mesh.position.z;
+        lightTarget.position.copy(localPlayer.mesh.position);
+        lightTarget.updateMatrixWorld();
+    } else {
+        // Optional: Set a default position/target if localPlayer isn't ready?
+        // lightTarget.position.set(0,0,0);
+    }
 
     renderer.render(scene, camera);
 }

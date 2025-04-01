@@ -55,7 +55,7 @@ export class MinigameManager {
              // Example: gameState.teleportPlayer(gameState.localPlayer.uuid, startPos);
              // For now, just log - player positioning needs careful handling
              if (this.gameStateRef.localPlayer) {
-                 this.gameStateRef.localPlayer.position.copy(startPos);
+                 this.gameStateRef.localPlayer.mesh.position.copy(startPos);
              }
         }
 
@@ -71,7 +71,7 @@ export class MinigameManager {
         // Check conditions using the localPlayer from GameState
         const localPlayer = this.gameStateRef.localPlayer;
         if (localPlayer) { 
-             const playerPosition = localPlayer.position;
+             const playerPosition = localPlayer.mesh.position;
              let shouldEnd = false;
 
              // Update checks for CollectCoinsMinigame
