@@ -16,10 +16,33 @@ export interface PlayerRepresentation {
     mesh: THREE.Group; // The visual representation (using Group for consistency)
 }
 
-// Add other client-specific types here in the future if needed 
+// Base interface for all game objects that can be stored in the Toolbox
+export interface GameObject {
+    mesh: THREE.Object3D;
+    type: string;
+    options?: any;
+}
+
+// Roblox-inspired Toolbox for managing game objects
+export interface Toolbox {
+    // Generic method to get any type of game object
+    getObject<T extends THREE.Object3D>(type: string): T | undefined;
+    
+    // Generic method to create and add a new game object
+    createObject<T extends THREE.Object3D>(type: string, options?: any): T;
+    
+    // Generic method to remove a game object
+    removeObject(object: THREE.Object3D): void;
+    
+    // Method to get all objects of a specific type
+    getAllObjects<T extends THREE.Object3D>(type: string): T[];
+}
 
 export interface Workspace {
     scene: THREE.Scene;
     localPlayer: PlayerRepresentation; // Use the new type
     otherPlayers: PlayerRepresentation[]; // Use the new type
+    toolbox: Toolbox; // Add the toolbox to the workspace
 }
+
+// Add other client-specific types here in the future if needed 

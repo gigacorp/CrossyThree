@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Minigame } from "../minigame";
 import { Workspace } from "../client-types";
 import { BLOCK_SIZE, MAP_WIDTH, MAP_HEIGHT } from "../constants";
+import { Toolbox } from "../client-types";
 
 // --- Particle Effect Helper --- 
 
@@ -65,12 +66,13 @@ export class CollectCoinsMinigame implements Minigame {
     instructions = "Collect all the coins!";
 
     private sceneRef: THREE.Scene | null = null;
+    private workspaceRef: Workspace | null = null;
     private coins: THREE.Mesh[] = [];
     private isActive: boolean = false;
-    private coinCount = 10; // Increased from 5
-    private collectDistance = BLOCK_SIZE * 0.75; // How close player needs to be
-    private startPosition = new THREE.Vector3(0, 0, 0); // Center player initially
-    private activeEffects: ParticleEffect[] = []; // Array to hold active effects
+    private coinCount = 10;
+    private collectDistance = BLOCK_SIZE * 0.75;
+    private startPosition = new THREE.Vector3(0, 0, 0);
+    private activeEffects: ParticleEffect[] = [];
 
     load(scene: THREE.Scene): void {
         console.log("CollectCoinsMinigame assets loaded (if any).");
@@ -82,26 +84,24 @@ export class CollectCoinsMinigame implements Minigame {
             return;
         }
         this.sceneRef = workspace.scene;
+        this.workspaceRef = workspace;
         this.isActive = true;
         this.coins = [];
-        this.activeEffects = []; // Clear effects on start
+        this.activeEffects = [];
 
         console.log("Starting Collect Coins Minigame...");
 
         for (let i = 0; i < this.coinCount; i++) {
-            const coin = this.createCoin();
-            // Use MAP_WIDTH and MAP_HEIGHT for random position within map boundaries
-            coin.position.set(
-                (Math.random() - 0.5) * MAP_WIDTH,  // Random X within map width
-                BLOCK_SIZE * 0.5, // Place slightly above ground
-                (Math.random() - 0.5) * MAP_HEIGHT // Random Z within map height
-            );
-            this.sceneRef.add(coin);
+            const coin = this.workspaceRef.toolbox.createObject<THREE.Mesh>('coin', {
+                position: new THREE.Vector3(
+                    (Math.random() - 0.5) * MAP_WIDTH,
+                    BLOCK_SIZE * 0.5,
+                    (Math.random() - 0.5) * MAP_HEIGHT
+                )
+            });
             this.coins.push(coin);
         }
 
-        // Move player to start position (if needed)
-        // workspace.localPlayer.position.copy(this.startPosition);
         console.log("Collect Coins Minigame Started!");
     }
 
@@ -142,17 +142,11 @@ export class CollectCoinsMinigame implements Minigame {
     }
 
     end(): void {
-        if (!this.isActive || !this.sceneRef) return;
+        if (!this.isActive || !this.sceneRef || !this.workspaceRef) return;
         console.log("Collect Coins Minigame Ended.");
 
         this.coins.forEach(coin => {
-            this.sceneRef?.remove(coin);
-            coin.geometry.dispose();
-            if (Array.isArray(coin.material)) {
-                coin.material.forEach(m => m.dispose());
-            } else {
-                coin.material.dispose();
-            }
+            this.workspaceRef!.toolbox.removeObject(coin);
         });
         this.coins = [];
 
@@ -165,6 +159,7 @@ export class CollectCoinsMinigame implements Minigame {
         this.activeEffects = [];
 
         this.sceneRef = null;
+        this.workspaceRef = null;
         this.isActive = false;
     }
 
@@ -182,57 +177,32 @@ export class CollectCoinsMinigame implements Minigame {
 
     // Call this from the manager/game loop to check if the player collected a coin
     public checkCollection(playerPosition: THREE.Vector3): void {
-        if (!this.isActive || !this.sceneRef) return;
+        if (!this.isActive || !this.sceneRef || !this.workspaceRef) return;
 
         const playerPosXZ = new THREE.Vector3(playerPosition.x, 0, playerPosition.z);
 
         this.coins = this.coins.filter(coin => {
-            const coinPos = coin.position.clone(); // Use actual coin position for effect
+            const coinPos = coin.position.clone();
             const coinPosXZ = new THREE.Vector3(coinPos.x, 0, coinPos.z);
             const distance = playerPosXZ.distanceTo(coinPosXZ);
             
             if (distance < this.collectDistance) {
                 console.log("Coin collected!");
 
-                // *** Create particle effect at coin's position ***
+                // Create particle effect at coin's position
                 const effect = createCoinCollectEffect(coinPos);
                 this.activeEffects.push(effect);
                 this.sceneRef?.add(effect.points);
 
-                // Remove coin from scene and dispose
-                this.sceneRef?.remove(coin);
-                coin.geometry.dispose();
-                 if (Array.isArray(coin.material)) {
-                     coin.material.forEach(m => m.dispose());
-                 } else {
-                     coin.material.dispose();
-                 }
-                return false; // Remove coin from array
+                // Remove coin using toolbox
+                this.workspaceRef!.toolbox.removeObject(coin);
+                return false;
             }
-            return true; // Keep coin
+            return true;
         });
     }
 
     public getStartPosition(): THREE.Vector3 {
         return this.startPosition.clone();
-    }
-
-    // --- Private Methods --- 
-
-    private createCoin(): THREE.Mesh {
-        // Simple cylinder shape for coin
-        const geometry = new THREE.CylinderGeometry(BLOCK_SIZE * 0.3, BLOCK_SIZE * 0.3, 0.1, 16);
-        // Make material shinier (high metalness, low roughness) and brighter (emissive)
-        const material = new THREE.MeshStandardMaterial({
-             color: 0xffd700,        // Base gold color
-             metalness: 0.9,       // More metallic
-             roughness: 0.2,       // Smoother surface
-             emissive: 0xffcc00,     // Add a yellow glow
-             emissiveIntensity: 0.3 // Keep the glow subtle
-         });
-        const coin = new THREE.Mesh(geometry, material);
-        coin.castShadow = true;
-        coin.rotateX(Math.PI / 2); // Rotate to lay flat
-        return coin;
     }
 } 

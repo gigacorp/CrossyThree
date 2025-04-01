@@ -13,8 +13,9 @@ import {
     ROTATION_LERP_FACTOR
 } from './constants';
 import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand } from './schema';
-import { MoveCommand, Workspace, PlayerRepresentation } from './client-types';
-import { MinigameManager } from './minigames/minigameManager'; // Import MinigameManager
+import { MoveCommand, Workspace, PlayerRepresentation, Toolbox } from './client-types';
+import { MinigameManager } from './minigames/minigameManager';
+import { ToolboxImpl } from './studio/ToolboxImpl';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -63,13 +64,17 @@ focusOnPosition(camera, localPlayerMesh.position); // Focus camera on initial me
 // Minigame Setup
 const minigameManager = new MinigameManager();
 
+// Initialize toolbox with implementation
+const toolbox: Toolbox = new ToolboxImpl(scene);
+
 // Function to create the ClientGameState object
 function getCurrentGameState(): Workspace | null { // Return null if localPlayer not set
     if (!localPlayer) return null;
     return {
         scene: scene,
         localPlayer: localPlayer, // Use the full representation
-        otherPlayers: Array.from(otherPlayers.values()) // Convert Map values to Array
+        otherPlayers: Array.from(otherPlayers.values()), // Convert Map values to Array
+        toolbox: toolbox // Include the toolbox
     };
 }
 
@@ -475,9 +480,6 @@ function animate() {
         directionalLight.position.z = localPlayer.mesh.position.z;
         lightTarget.position.copy(localPlayer.mesh.position);
         lightTarget.updateMatrixWorld();
-    } else {
-        // Optional: Set a default position/target if localPlayer isn't ready?
-        // lightTarget.position.set(0,0,0);
     }
 
     renderer.render(scene, camera);
