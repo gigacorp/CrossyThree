@@ -1,0 +1,27 @@
+runtime: nodejs
+env: flex
+
+# Use the command 'node dist/server.js' to start the application
+entrypoint: node dist/server.js
+
+# Optional: Define resource settings (adjust based on needs)
+# resources:
+#   cpu: 1
+#   memory_gb: 0.5
+#   disk_size_gb: 10
+
+# Define automatic scaling settings (example)
+automatic_scaling:
+  min_num_instances: 1
+  max_num_instances: 2 # Start small
+  cool_down_period_sec: 180
+  cpu_utilization:
+    target_utilization: 0.65
+
+# Network settings removed - Rely on App Engine default behavior
+# network:
+#   forwarded_ports:
+#     - 8080
+
+runtime_config:
+  operating_system: ubuntu22
