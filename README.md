@@ -1,6 +1,28 @@
 # CrossyThree Multiplayer
 
-ThreeJS/Colyseus-based, Crossy Road-inspired, vibe coded thing
+**🚧 Development Status: This project is currently under active development and is far from finished. Features may change, break, or be incomplete. 🚧**
+
+## Mini Games
+
+CrossyThree Multiplayer features various mini-games that players can enjoy together:
+
+### Current Mini-Games
+
+- **Tag**: Chase other players and try to tag them! The last player not tagged wins.
+- **Floor is Lava**: Jump between safe platforms while the ground turns to lava. Last player standing wins.
+- **Color Match**: Match your color with the displayed color by moving to the right zone. Score points for quick matches.
+
+### Mini-Game Rules
+
+- Mini-games take place in the same multiplayer environment
+- Each game has simple rules that are displayed when the game starts
+- Games are time-limited (usually 2-3 minutes)
+- Players can vote on which mini-game to play next
+- Scores are tracked and displayed at the end of each game
+
+### Coming Soon
+
+More mini-games are in development! Have an idea for a fun mini-game? Let us know through the feedback channels.
 
 ## How to Run
 
