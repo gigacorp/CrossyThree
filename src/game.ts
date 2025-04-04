@@ -12,9 +12,8 @@ import {
     SWIPE_THRESHOLD, TAP_THRESHOLD, BLOCK_SIZE,
     ROTATION_LERP_FACTOR
 } from './constants';
-import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand } from './schema';
+import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand, MinigameObjectState } from './schema.js';
 import { MoveCommand, Workspace, PlayerRepresentation, Toolbox } from './client-types';
-import { MinigameManager } from './minigames/minigameManager';
 import { ToolboxImpl } from './studio/ToolboxImpl';
 
 // Add these declarations at the top of the file, after imports
@@ -122,48 +121,17 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 
-// Add some instructions text (Will be overridden by minigame)
-// const instructionsText = createGroundText('Use arrow keys to move', new THREE.Vector3(0, 0, MAP_HALF_HEIGHT+10), '#ffffff')
-// if (instructionsText) {
-//     scene.add(instructionsText);
-// }
-
-// Add finish line text (Will be overridden by minigame)
-// const finishText = createGroundText('The end', new THREE.Vector3(0, 0, -MAP_HALF_HEIGHT-10), '#ffffff');
-// if (finishText) {
-//     scene.add(finishText);
-// }
-
 // Create grass field
 const grassField = createGrass();
 scene.add(grassField);
 
-// Player setup
-const localPlayerMesh = createPlayer(); // Create the mesh first
 let localPlayer: PlayerRepresentation | null = null; // Will be populated once ID is received
-localPlayerMesh.position.set(0, 0, MAP_HALF_HEIGHT-BLOCK_SIZE/2); 
-scene.add(localPlayerMesh); // Add mesh to scene
-focusOnPosition(camera, localPlayerMesh.position); // Focus camera on initial mesh position
-
-// Minigame Setup
-const minigameManager = new MinigameManager();
 
 // Initialize toolbox with implementation
 const toolbox: Toolbox = new ToolboxImpl(scene);
 
-// Function to create the ClientGameState object
-function getCurrentGameState(): Workspace | null { // Return null if localPlayer not set
-    if (!localPlayer) return null;
-    return {
-        scene: scene,
-        localPlayer: localPlayer, // Use the full representation
-        otherPlayers: Array.from(otherPlayers.values()), // Convert Map values to Array
-        toolbox: toolbox // Include the toolbox
-    };
-}
-
-// Call minigame manager when local player spawns (now happens when ID received)
-// minigameManager.onPlayerDidSpawn(player); // Removed - Handled later
+// Call minigame manager when local player spawns - REMOVE
+// minigameManager.onPlayerDidSpawn(player); 
 
 // Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -183,7 +151,6 @@ directionalLight.shadow.camera.bottom = -400;
 directionalLight.target.updateMatrixWorld();
 
 const lightTarget = new THREE.Object3D();
-lightTarget.position.copy(localPlayerMesh.position);
 scene.add(lightTarget);
 directionalLight.target = lightTarget;
 
@@ -206,43 +173,44 @@ const client = new Client(window.location.protocol === 'https:'
     ? `wss://${window.location.hostname}`
     : `ws://${window.location.hostname}:3000`);
 
-let playerId: string | null = null;
 // Update otherPlayers Map to store PlayerRepresentation
 const otherPlayers = new Map<string, PlayerRepresentation>(); 
 const otherPlayersMoveQueues = new Map<string, MoveCommand[]>(); 
 const clock = new THREE.Clock(); 
 
+// Keep track of minigame object visuals
+const minigameObjectMeshes: Map<string, THREE.Object3D> = new Map();
+
+// Track the last processed minigame ID to detect changes
+let lastProcessedMinigameId: string | null = null; 
+
 // Function to synchronize local player meshes with server state
 function syncPlayerState(state: GameState) { 
-    if (!playerId || !room) { 
+    if (!localPlayer || !room) { 
         console.warn('syncPlayerState called before playerId or room was set. Skipping update.');
         return; 
     }
     updatePlayerCount(state.playerCount);
-
+    
     const playersInServerState = new Set<string>();
+
+    console.log('Syncing player state:', state);
+    if (!state.players) {
+        console.warn('No players in server state. Skipping sync.');
+        return;
+    }
 
     // Create or update players based on server state
     state.players.forEach((playerSchema: PlayerSchema, id: string) => { 
         playersInServerState.add(id); 
 
-        if (id === playerId) { 
-            // Ensure local player representation is initialized if not already
-            if (!localPlayer) {
-                localPlayer = { id: playerId, mesh: localPlayerMesh };
-                console.log(`Initialized local PlayerRepresentation for ID: ${playerId}`);
-                // Now notify minigame manager about local player spawn
-                minigameManager.onPlayerDidSpawn(localPlayer.mesh);
-                focusOnPosition(camera, localPlayer.mesh.position);
-            }
+        if (id === localPlayer?.id) {
             return;
         }
 
         // Handle other players
         let otherPlayerRep = otherPlayers.get(id);
-        let isNewPlayer = false; 
         if (!otherPlayerRep) {
-            isNewPlayer = true; 
             console.log(`Sync: Creating representation for player ${id}`);
             const newMesh = createPlayer(); // Create a new mesh
             otherPlayerRep = { id: id, mesh: newMesh }; // Create representation
@@ -255,11 +223,6 @@ function syncPlayerState(state: GameState) {
         // Update position and rotation from schema using the mesh inside the representation
         otherPlayerRep.mesh.position.set(playerSchema.x, playerSchema.y, playerSchema.z);
         otherPlayerRep.mesh.rotation.y = playerSchema.rotation;
-
-        // If it's a new player, notify the minigame manager with the mesh
-        if (isNewPlayer) {
-            minigameManager.onPlayerDidSpawn(otherPlayerRep.mesh);
-        }
     });
 
     // Remove local representations for players NOT in the current server state
@@ -278,6 +241,8 @@ async function connectToServer() {
     try {
         room = await client.joinOrCreate<GameState>('game_room'); 
         console.log('Connected to room:', room.roomId, 'SessionId:', room.sessionId);
+        console.log('Local player ID:', room.sessionId);
+        console.log('Local player:', localPlayer);
         
         // Update room ID display
         const roomIdElement = document.getElementById('roomId');
@@ -285,36 +250,17 @@ async function connectToServer() {
             roomIdElement.textContent = `Room: ${room.roomId}`;
         }
         
-        room.onMessage('playerId', (id: string) => { 
-            playerId = id;
-            console.log('Received player ID:', playerId);
+        // Initialize localPlayer Representation now that we have the ID
+        if (!localPlayer) { // Check prevents re-initialization on reconnect/message duplication
+            const localPlayerMesh = createPlayer(); // Create the mesh first
+            scene.add(localPlayerMesh); // Add mesh to scene
+            localPlayer = { id: room.sessionId, mesh: localPlayerMesh };
+            console.log(`Initialized local PlayerRepresentation from playerId message: ${room.sessionId}`);
+            focusOnPosition(camera, localPlayer.mesh.position); // Ensure camera focuses after ID received
+        }
 
-            // Initialize localPlayer Representation now that we have the ID
-            if (!localPlayer) { // Check prevents re-initialization on reconnect/message duplication
-                localPlayer = { id: playerId, mesh: localPlayerMesh };
-                 console.log(`Initialized local PlayerRepresentation from playerId message: ${playerId}`);
-                 // Notify minigame manager about local player spawn
-                 minigameManager.onPlayerDidSpawn(localPlayer.mesh);
-                 focusOnPosition(camera, localPlayer.mesh.position); // Ensure camera focuses after ID received
-            }
-
-            if (room && localPlayer) { // Ensure room and localPlayer exist
-                 console.log('Processing initial state after receiving playerId...');
-                 syncPlayerState(room.state); // Initial sync
-                 console.log('Finished processing initial state.');
-
-                 // START THE MINIGAME HERE
-                 console.log("Attempting to start default minigame...");
-                 const currentGameState = getCurrentGameState(); // Get current state
-                 if (currentGameState) { // Check if state is available
-                     minigameManager.startMinigame('collectCoins', currentGameState); 
-                 } else {
-                     console.error("Cannot start minigame: ClientGameState is null.");
-                 }
-            } else {
-                console.error('Room object or localPlayer became null unexpectedly after join/receiving ID.');
-            }
-        });
+        syncPlayerState(room.state); // Initial sync
+        console.log('Finished processing initial state.');
 
         // Listen for player move commands from broadcast
         room.onMessage('playerMoveCommand', (data: PlayerMoveCommand) => { // Use PlayerMoveCommand interface
@@ -328,8 +274,13 @@ async function connectToServer() {
         });
 
         // Listen for state changes (Handles subsequent updates)
-        room.onStateChange(syncPlayerState); 
-
+        room.onStateChange((state) => {
+            console.log("New state received:", state);
+            // Ensure player sync is called
+            syncPlayerState(state);
+            // Call minigame object sync
+            syncMinigameObjects(state);
+        });
     } catch (error) {
         console.error('Failed to connect to server:', error);
     }
@@ -415,7 +366,7 @@ function queueMove(movement: { x: number; z: number }) {
     room.send('move', movePayload);
 }
 
-// Override processMoveQueue to notify minigame manager
+// Override processMoveQueue to notify minigame manager - REMOVE Notify
 const originalProcessMoveQueue = processMoveQueue; 
 
 // Wrapper function remains the same signature, takes Group
@@ -431,9 +382,6 @@ const processMoveQueueWithNotify = (
     const stillMoving = queue.length > 0;
     const justFinishedMoving = wasMoving && !stillMoving;
 
-    if (justFinishedMoving) {
-        minigameManager.onPlayerDidMove(object); // Pass the mesh
-    }
     return stillMoving; 
 };
 
@@ -442,22 +390,8 @@ function animate() {
     animationFrameId = requestAnimationFrame(animate);
     const delta = clock.getDelta();
 
-    // // --- REMOVE DEBUG LOGS ---
-    // // console.log(`Camera Position: x=${camera.position.x.toFixed(2)}, y=${camera.position.y.toFixed(2)}, z=${camera.position.z.toFixed(2)}`);
-    // // if (localPlayer) {
-    // //     console.log(`Player Position: x=${localPlayer.mesh.position.x.toFixed(2)}, y=${localPlayer.mesh.position.y.toFixed(2)}, z=${localPlayer.mesh.position.z.toFixed(2)}`);
-    // // }
-    // // console.log("Scene Children Count:", scene.children.length);
-    // // --- END DEBUG LOGS ---
+    // ... (Debug logs removed)
 
-    // Get current game state (can be null initially)
-    const currentClientState = getCurrentGameState(); 
-
-    // Update minigame manager IF active AND state is available
-    if (minigameManager.isActive() && currentClientState) {
-        minigameManager.update(delta);
-    } 
-    
     // Process movement for local player if representation exists
     if (localPlayer) {
         isMoving = processMoveQueueWithNotify(moveQueue, localPlayer.mesh, delta);
@@ -544,3 +478,151 @@ document.getElementById('exitButton')?.addEventListener('click', () => {
     cleanupGame();
     window.location.href = '/';
 }); 
+
+// Creates the visual representation for a minigame object
+function createMinigameObjectVisual(id: string, objState: MinigameObjectState): THREE.Object3D | null {
+    let objectVisual: THREE.Object3D | null = null;
+
+    // TODO: Replace with your actual visual creation logic using Toolbox or similar
+    const placeholderMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
+
+    if (objState.type === 'Tile') {
+        // Example: Create visuals based on tileType
+        let geometry: THREE.BufferGeometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE * 0.2, BLOCK_SIZE); // Default tile
+        let material = placeholderMaterial;
+        let yOffset = -BLOCK_SIZE * 0.4; // Position pivot at top center
+
+        switch (objState.tileType) {
+            case 'Coin':
+                geometry = new THREE.CylinderGeometry(BLOCK_SIZE * 0.4, BLOCK_SIZE * 0.4, BLOCK_SIZE * 0.1, 16);
+                material = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.5, roughness: 0.3 });
+                yOffset = BLOCK_SIZE * 0.5; // Center coin vertically
+                break;
+            case 'Lava':
+                material = new THREE.MeshStandardMaterial({ color: 0xff4500, emissive: 0xcc3300, roughness: 0.9 });
+                yOffset = -BLOCK_SIZE * 0.45; // Slightly lower
+                break;
+            case 'Grass':
+                 material = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.9 });
+                 break;
+            case 'Button':
+                 geometry = new THREE.CylinderGeometry(BLOCK_SIZE * 0.3, BLOCK_SIZE * 0.3, BLOCK_SIZE * 0.15, 24);
+                 material = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.2, roughness: 0.5 });
+                 yOffset = BLOCK_SIZE * 0.075; 
+                 break;
+             case 'Bridge':
+                  geometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE * 0.15, BLOCK_SIZE);
+                  material = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8 });
+                  yOffset = -BLOCK_SIZE * (0.5 - 0.15/2);
+                  break;
+             // Add more cases for other tileTypes (Water, etc.)
+        }
+        
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(objState.position.x, objState.position.y + yOffset, objState.position.z);
+        // Optional: Add rotation or specific adjustments based on tileType
+        if (objState.tileType === 'Coin') {
+             mesh.rotation.x = Math.PI / 2;
+        }
+        objectVisual = mesh;
+
+    } else if (objState.type === 'Text') {
+        // TODO: Implement text rendering (e.g., using TextGeometry, Sprites, or HTML)
+        // Placeholder visual
+        const textMesh = new THREE.Mesh(
+             new THREE.BoxGeometry(BLOCK_SIZE*2, BLOCK_SIZE*0.5, 0.1), 
+             new THREE.MeshBasicMaterial({ color: objState.color || 0xffffff, wireframe: true })
+        );
+        textMesh.position.set(objState.position.x, objState.position.y, objState.position.z);
+        console.log(`Text object added: "${objState.text}" at ${objState.position.x},${objState.position.y},${objState.position.z}`);
+        objectVisual = textMesh;
+    }
+    // Add cases for other types (Platform, etc.)
+
+    if (objectVisual) {
+        objectVisual.name = `minigame_${id}`; // Set name for debugging
+        objectVisual.visible = objState.visible; // Set initial visibility
+        scene.add(objectVisual); // Add to the main scene
+        minigameObjectMeshes.set(id, objectVisual);
+        console.log(`Created visual for minigame object: ${id} (${objState.type} - ${objState.tileType || objState.text})`);
+    }
+    return objectVisual;
+}
+
+// Removes the visual representation of a minigame object
+function removeMinigameObjectVisual(id: string) {
+    if (minigameObjectMeshes.has(id)) {
+        const objectVisual = minigameObjectMeshes.get(id)!;
+        scene.remove(objectVisual);
+
+        // Dispose of geometry and material to free up memory
+        if (objectVisual instanceof THREE.Mesh) {
+            objectVisual.geometry?.dispose();
+            if (Array.isArray(objectVisual.material)) {
+                objectVisual.material.forEach(mat => mat.dispose());
+            } else {
+                objectVisual.material?.dispose();
+            }
+        }
+        // Handle disposal for other types if necessary (Groups, Sprites)
+
+        minigameObjectMeshes.delete(id);
+        console.log(`Removed visual for minigame object: ${id}`);
+    }
+}
+
+// Performs a full synchronization - ensuring local visuals match server state
+function syncMinigameObjects(state: GameState) {
+    // Check if the minigame has changed
+    if (state.currentMinigameId !== lastProcessedMinigameId) {
+        console.log(`Minigame changed from ${lastProcessedMinigameId} to ${state.currentMinigameId}. Clearing visuals.`);
+        // Remove all existing minigame visuals
+        minigameObjectMeshes.forEach((mesh, id) => {
+            removeMinigameObjectVisual(id);
+        });
+        minigameObjectMeshes.clear();
+        lastProcessedMinigameId = state.currentMinigameId;
+        if (lastProcessedMinigameId === null) {
+             console.log("Minigame ended or cleared.");
+             return; 
+        }
+    }
+
+    // If no minigame is active, ensure no objects are present locally
+    if (!state.currentMinigameId || !state.minigameObjects) {
+         if (minigameObjectMeshes.size > 0) {
+             console.log("No active minigame, clearing stray visuals...");
+              minigameObjectMeshes.forEach((mesh, id) => removeMinigameObjectVisual(id));
+              minigameObjectMeshes.clear();
+         }
+        return; 
+    }
+
+    // --- Sync existing and add new objects ---
+    const currentServerIds = new Set(state.minigameObjects.keys());
+
+    state.minigameObjects.forEach((objState, id) => {
+        let mesh = minigameObjectMeshes.get(id);
+
+        if (!mesh) {
+            // Create visual if it doesn't exist locally
+            const newMesh = createMinigameObjectVisual(id, objState);
+            // We don't need to assign to mesh var here as create adds to map
+            // mesh = newMesh; // This line caused the type error
+        } else {
+            // Visual exists, update its properties (e.g., visibility)
+            if (mesh.visible !== objState.visible) {
+                mesh.visible = objState.visible;
+            }
+            // TODO: Sync other potentially changing properties
+        }
+    });
+
+    // --- Remove objects that are no longer in the server state ---
+    minigameObjectMeshes.forEach((mesh, id) => {
+        if (!currentServerIds.has(id)) {
+            console.log(`Sync: Removing stale object ${id}`);
+            removeMinigameObjectVisual(id);
+        }
+    });
+} 

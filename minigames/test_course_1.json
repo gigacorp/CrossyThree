@@ -1,0 +1,47 @@
+{
+    "minigameId": "test_course_1",
+    "displayName": "Test Course Alpha",
+    "description": "A simple test course with a collectable and a hazard.",
+    "objects": [
+        {
+            "id": "start_text",
+            "type": "Text",
+            "position": { "x": 0, "y": 1, "z": 18 },
+            "visible": true,
+            "text": "Get to the other side!",
+            "color": "#FFFFFF"
+        },
+        {
+            "id": "coin_middle",
+            "type": "Tile",
+            "position": { "x": 0, "y": 0, "z": 0 },
+            "visible": true,
+            "tileType": "Coin",
+            "action": {
+                "type": "Collect",
+                "score": 50
+            }
+        },
+        {
+            "id": "lava_trap",
+            "type": "Tile",
+            "position": { "x": 5, "y": -0.5, "z": -10 },
+            "visible": true,
+            "tileType": "Lava",
+            "action": {
+                "type": "DestroyTouchingPlayer",
+                "respawn": "StartZone"
+            }
+        },
+        {
+            "id": "finish_line",
+            "type": "Tile",
+            "position": { "x": 0, "y": 0, "z": -18 },
+            "visible": false,
+            "tileType": "None",
+            "action": {
+                "type": "FinishTrigger"
+            }
+        }
+    ]
+} 

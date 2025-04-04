@@ -8,13 +8,13 @@ interface Game {
 
 const games: Game[] = [
     {
-        id: 'collect-coins',
-        title: 'Collect Coins',
-        description: 'A multiplayer game where you collect coins while avoiding other players. The player with the most coins wins!',
-        thumbnail: '🪙', // We can replace this with an actual image later
-        instructions: 'Collect all the coins!'
+        id: 'test_course_1',
+        title: 'Test Course Alpha',
+        description: 'A simple test course with a collectable and a hazard.',
+        thumbnail: '🚧',
+        instructions: 'Get to the other side! Collect the coin, avoid the lava.'
     }
-    // Add more games here as they are created
+    // Add more games here if you create more JSON files
 ];
 
 function createGameCard(game: Game): HTMLElement {
