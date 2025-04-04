@@ -44,7 +44,7 @@ app.use('/colyseus', monitor());
 
 class GameRoom extends Room<GameState> {
     onCreate(options: Record<string, unknown>) {
-        this.setState(new GameState());
+        this.state = new GameState();
 
         this.onMessage('move', (client, message: MoveMessage) => {
             const playerId = client.sessionId;
