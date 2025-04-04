@@ -29,9 +29,16 @@ export class MinigameManager {
 
         console.log(`Attempting to start minigame: ${type}`);
 
+        // Ensure refs are valid before proceeding
+        if (!this.sceneRef || !this.workspaceRef) {
+            console.error("SceneRef or WorkspaceRef became null unexpectedly during minigame start.");
+            return;
+        }
+
         switch (type) {
             case "collectCoins":
-                this.currentMinigame = new CollectCoinsMinigame();
+                // Only pass workspace, scene is accessed through it
+                this.currentMinigame = new CollectCoinsMinigame(this.workspaceRef);
                 break;
             // Add cases for other minigame types here
             default:
@@ -42,21 +49,26 @@ export class MinigameManager {
                 return;
         }
 
-        // Load assets first
-        this.currentMinigame.load(this.sceneRef);
+        // Add null check for currentMinigame before loading/starting
+        if (!this.currentMinigame) {
+            console.error("Failed to instantiate minigame.");
+            this.workspaceRef = null; // Clear references if failed
+            this.sceneRef = null;
+            this.minigameType = null;
+            return;
+        }
 
-        // Then start the game logic
-        this.currentMinigame.start(this.workspaceRef);
+        // Then start the game logic, no longer passing workspaceRef
+        this.currentMinigame.start();
 
-        // Optional: Move player to start position for this specific minigame
+        // Optional: Move player to start position
+        // Check instanceof and ensure currentMinigame is not null
         if (this.currentMinigame instanceof CollectCoinsMinigame) {
             const startPos = this.currentMinigame.getStartPosition();
-             console.log(`Minigame requested player start at: ${startPos.toArray().join(", ")}`);
-             // Example: workspace.teleportPlayer(workspace.localPlayer.uuid, startPos);
-             // For now, just log - player positioning needs careful handling
-             if (this.workspaceRef.localPlayer) {
-                 this.workspaceRef.localPlayer.mesh.position.copy(startPos);
-             }
+            console.log(`Minigame requested player start at: ${startPos.toArray().join(", ")}`);
+            if (this.workspaceRef?.localPlayer) {
+                this.workspaceRef.localPlayer.mesh.position.copy(startPos);
+            }
         }
 
         console.log(`Minigame "${type}" started. Instructions: ${this.currentMinigame.instructions}`);
@@ -65,35 +77,8 @@ export class MinigameManager {
     update(delta: number): void {
         if (!this.currentMinigame || !this.workspaceRef) return;
 
-        // Update the minigame internal state
-        this.currentMinigame.update(delta, this.workspaceRef);
-
-        // Check conditions using the localPlayer from workspace
-        const localPlayer = this.workspaceRef.localPlayer;
-        if (localPlayer) { 
-             const playerPosition = localPlayer.mesh.position;
-             let shouldEnd = false;
-
-             // Update checks for CollectCoinsMinigame
-             if (this.currentMinigame instanceof CollectCoinsMinigame) {
-                 // Call checkCollection first
-                 this.currentMinigame.checkCollection(playerPosition);
-                 
-                 // Then check if all coins are collected (win condition)
-                 if (this.currentMinigame.checkWinCondition()) {
-                     console.log("Minigame Win Condition Met! (All coins collected)");
-                     shouldEnd = true;
-                     // TODO: Handle win 
-                 }
-                 // No specific fail condition for falling in this game
-             }
-             
-             if (shouldEnd) {
-                 this.endMinigame();
-             }
-        } else {
-             console.warn("Local player object not found in workspace during MinigameManager update.");
-        }
+        // Update the minigame internal state, no longer passing workspaceRef
+        this.currentMinigame.update(delta);
     }
 
     endMinigame(): void {
@@ -105,7 +90,6 @@ export class MinigameManager {
         this.workspaceRef = null;
         this.sceneRef = null;
         this.minigameType = null;
-        // TODO: Return player to a default state or position?
     }
 
     // --- Forwarding Interface Methods ---

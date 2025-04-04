@@ -5,14 +5,11 @@ export interface Minigame {
     /** Instructions displayed to the player at the start */
     instructions: string;
 
-    /** Called once to load any assets or setup needed before the game starts */
-    load: (scene: Scene) => void;
-
     /** Called when the minigame officially begins */
-    start: (workspace: Workspace) => void;
+    start: () => void;
 
     /** Called every frame to update the minigame state */
-    update: (delta: number, workspace: Workspace) => void;
+    update: (delta: number) => void;
 
     /** Called when the minigame ends */
     end: () => void;
