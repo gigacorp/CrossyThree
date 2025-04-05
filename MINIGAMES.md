@@ -105,7 +105,7 @@ To enhance security and simplify server logic, minigames are defined using a dec
     *   `position`: `{x, y, z}` world coordinates.
     *   `visible`: Boolean, current visibility state (managed by server).
 *   **`Tile`** (Extends Object):
-    *   `tileType`: String hint for client rendering and potentially server logic. Examples: `"Grass"`, `"Lava"`, `"Water"`, `"Coin"`, `"Button"`, `"Bridge"`, `"None"`.
+    *   `tileType`: String hint for client rendering and potentially server logic. Examples: `"Lava"`, `"Coin"`, `"Button"`.
     *   `action`: Defines the interaction when a player enters this tile's space.
     *   *(Optional)* `size`: `{width, height, depth}` if the tile isn't a standard 1x1x1 block.
 *   **`Text`** (Extends Object):

@@ -15,7 +15,7 @@ export function createGrass() {
         });
         const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
         stripe.rotation.x = -Math.PI / 2; // Rotate to be horizontal
-        stripe.position.y = 0;
+
         // Center the stripes by offsetting by half a stripe width
         stripe.position.z = (i * stripeWidth) + (stripeWidth / 2);
         stripe.receiveShadow = true;

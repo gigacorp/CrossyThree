@@ -13,9 +13,9 @@ import {
     ROTATION_LERP_FACTOR
 } from './constants';
 import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand, MinigameObjectState } from './schema.js';
-import { MoveCommand, Workspace, PlayerRepresentation, Toolbox } from './client-types';
-import { ToolboxImpl } from './studio/ToolboxImpl';
-import { initializeInput, cleanupInput, MoveIntention } from './input'; // Import input module
+import { MoveCommand, Workspace, PlayerRepresentation, Toolbox as ToolboxInterface } from './client-types';
+import { Toolbox } from './toolbox/Toolbox';
+import { initializeInput, cleanupInput, MoveIntention } from './input';
 
 // Add these declarations at the top of the file, after imports
 let animationFrameId: number = 0;
@@ -49,7 +49,7 @@ scene.add(grassField);
 let localPlayer: PlayerRepresentation | null = null; // Will be populated once ID is received
 
 // Initialize toolbox with implementation
-const toolbox: Toolbox = new ToolboxImpl(scene);
+const toolbox: Toolbox = new Toolbox();
 
 // Call minigame manager when local player spawns - REMOVE
 // minigameManager.onPlayerDidSpawn(player); 
@@ -391,69 +391,28 @@ document.getElementById('exitButton')?.addEventListener('click', () => {
 function createMinigameObjectVisual(id: string, objState: MinigameObjectState): THREE.Object3D | null {
     let objectVisual: THREE.Object3D | null = null;
 
-    // TODO: Replace with your actual visual creation logic using Toolbox or similar
-    const placeholderMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
-
     if (objState.type === 'Tile') {
-        // Example: Create visuals based on tileType
-        let geometry: THREE.BufferGeometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE * 0.2, BLOCK_SIZE); // Default tile
-        let material = placeholderMaterial;
-        let yOffset = -BLOCK_SIZE * 0.4; // Position pivot at top center
-
-        switch (objState.tileType) {
-            case 'Coin':
-                geometry = new THREE.CylinderGeometry(BLOCK_SIZE * 0.4, BLOCK_SIZE * 0.4, BLOCK_SIZE * 0.1, 16);
-                material = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.5, roughness: 0.3 });
-                yOffset = BLOCK_SIZE * 0.5; // Center coin vertically
-                break;
-            case 'Lava':
-                material = new THREE.MeshStandardMaterial({ color: 0xff4500, emissive: 0xcc3300, roughness: 0.9 });
-                yOffset = -BLOCK_SIZE * 0.45; // Slightly lower
-                break;
-            case 'Grass':
-                 material = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.9 });
-                 break;
-            case 'Button':
-                 geometry = new THREE.CylinderGeometry(BLOCK_SIZE * 0.3, BLOCK_SIZE * 0.3, BLOCK_SIZE * 0.15, 24);
-                 material = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.2, roughness: 0.5 });
-                 yOffset = BLOCK_SIZE * 0.075; 
-                 break;
-             case 'Bridge':
-                  geometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE * 0.15, BLOCK_SIZE);
-                  material = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8 });
-                  yOffset = -BLOCK_SIZE * (0.5 - 0.15/2);
-                  break;
-             // Add more cases for other tileTypes (Water, etc.)
-        }
-        
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(objState.position.x, objState.position.y + yOffset, objState.position.z);
-        // Optional: Add rotation or specific adjustments based on tileType
-        if (objState.tileType === 'Coin') {
-             mesh.rotation.x = Math.PI / 2;
-        }
-        objectVisual = mesh;
-
-    } else if (objState.type === 'Text') {
-        // TODO: Implement text rendering (e.g., using TextGeometry, Sprites, or HTML)
-        // Placeholder visual
-        const textMesh = new THREE.Mesh(
-             new THREE.BoxGeometry(BLOCK_SIZE*2, BLOCK_SIZE*0.5, 0.1), 
-             new THREE.MeshBasicMaterial({ color: objState.color || 0xffffff, wireframe: true })
-        );
-        textMesh.position.set(objState.position.x, objState.position.y, objState.position.z);
-        console.log(`Text object added: "${objState.text}" at ${objState.position.x},${objState.position.y},${objState.position.z}`);
-        objectVisual = textMesh;
+        objectVisual = toolbox.createObject(objState.tileType || '');
+    } else if (objState.type === 'Text', objState.text, objState.position) {
+        objectVisual = createGroundText(objState.text || '', objState.color || "0xffffff");
     }
-    // Add cases for other types (Platform, etc.)
 
-    if (objectVisual) {
-        objectVisual.name = `minigame_${id}`; // Set name for debugging
-        objectVisual.visible = objState.visible; // Set initial visibility
-        scene.add(objectVisual); // Add to the main scene
-        minigameObjectMeshes.set(id, objectVisual);
-        console.log(`Created visual for minigame object: ${id} (${objState.type} - ${objState.tileType || objState.text})`);
+    if (!objectVisual) {
+        // Fallback placeholder creation if toolbox fails
+        console.error(`Failed to create any visual for minigame object: ${id}`, objState);
+        const placeholderGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE * 0.2, BLOCK_SIZE);
+        const placeholderMat = new THREE.MeshBasicMaterial({color: 0xff00ff, wireframe: true});
+        objectVisual = new THREE.Mesh(placeholderGeo, placeholderMat);
     }
+
+    // Common logic for any created object
+    objectVisual.position.set(objState.position.x, objState.position.y, objState.position.z);
+    objectVisual.name = `minigame_${id}`; // Set name for debugging
+    objectVisual.visible = objState.visible; // Set initial visibility
+    scene.add(objectVisual); // Add to the main scene
+    minigameObjectMeshes.set(id, objectVisual);
+    console.log(`Created visual for minigame object: ${id} (${objState.type} - ${objState.tileType || objState.text})`);
+    
     return objectVisual;
 }
 

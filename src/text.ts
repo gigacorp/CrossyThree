@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BLOCK_SIZE } from './constants';
 
 // Function to create 2D text sprite
-export function createGroundText(text: string, position: THREE.Vector3, color = '#ffffff'): THREE.Mesh | null {
+export function createGroundText(text: string, color = '#ffffff'): THREE.Mesh | null {
     // Create canvas
     const canvas = document.createElement('canvas');
     const context: CanvasRenderingContext2D | null = canvas.getContext('2d');
@@ -57,8 +57,12 @@ export function createGroundText(text: string, position: THREE.Vector3, color = 
 
     // Create mesh
     const textMesh = new THREE.Mesh(geometry, material);
-    textMesh.position.set(position.x, 0.01, position.z); // Slightly above ground
+    textMesh.position.y = 0.1; // Slightly above ground
     textMesh.rotation.x = -Math.PI / 2; // Rotate to lie flat on the ground
+
+    // Wrap in group
+    const group = new THREE.Group();
+    group.add(textMesh);
 
     return textMesh;
 } 
