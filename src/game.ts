@@ -15,90 +15,11 @@ import {
 import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand, MinigameObjectState } from './schema.js';
 import { MoveCommand, Workspace, PlayerRepresentation, Toolbox } from './client-types';
 import { ToolboxImpl } from './studio/ToolboxImpl';
+import { initializeInput, cleanupInput, MoveIntention } from './input'; // Import input module
 
 // Add these declarations at the top of the file, after imports
 let animationFrameId: number = 0;
 let room: Room<GameState> | null = null;
-
-// Event handler declarations
-function onWindowResize() {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    updateCameraFrustum(camera);
-}
-
-function onKeyDown(event: KeyboardEvent) {
-    if (isMoving) return;
-    if (event.repeat) return;
-    
-    let movement: { x: number; z: number } | null = null;
-    switch(event.key) {
-        case 'ArrowLeft':
-            movement = {x: -MOVE_DISTANCE, z: 0};
-            break;
-        case 'ArrowRight':
-            movement = {x: MOVE_DISTANCE, z: 0};
-            break;
-        case 'ArrowUp':
-            movement = {x: 0, z: -MOVE_DISTANCE};
-            break;
-        case 'ArrowDown':
-            movement = {x: 0, z: MOVE_DISTANCE};
-            break;
-    }
-    
-    if (movement) {
-        queueMove({
-            x: movement.x / MOVE_DISTANCE,
-            z: movement.z / MOVE_DISTANCE
-        });
-    }
-}
-
-function onKeyUp(event: KeyboardEvent) {
-    // No need for keyup handler currently
-}
-
-function onTouchStart(event: TouchEvent) {
-    touchStartX = event.touches[0].clientX;
-    touchStartY = event.touches[0].clientY;
-    touchStartTime = Date.now();
-    event.preventDefault();
-}
-
-function onTouchMove(event: TouchEvent) {
-    event.preventDefault();
-}
-
-function onTouchEnd(event: TouchEvent) {
-    const touchEndX = event.changedTouches[0].clientX;
-    const touchEndY = event.changedTouches[0].clientY;
-    const touchEndTime = Date.now();
-    
-    const deltaX = touchEndX - touchStartX;
-    const deltaY = touchEndY - touchStartY;
-    const deltaTime = touchEndTime - touchStartTime;
-    
-    if (Math.abs(deltaX) > SWIPE_THRESHOLD || Math.abs(deltaY) > SWIPE_THRESHOLD) {
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            if (deltaX > 0) {
-                queueMove({ x: 1, z: 0 });
-            } else {
-                queueMove({ x: -1, z: 0 });
-            }
-        } else {
-            if (deltaY > 0) {
-                queueMove({ x: 0, z: 1 });
-            } else {
-                queueMove({ x: 0, z: -1 });
-            }
-        }
-    } else if (deltaTime < TAP_THRESHOLD) {
-        queueMove({ x: 0, z: -1 });
-    }
-    
-    event.preventDefault();
-}
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -162,11 +83,6 @@ scene.add(directionalLight);
 // Movement queue for the local player
 const moveQueue: MoveCommand[] = [];
 let isMoving = false;
-
-// Touch controls
-let touchStartX = 0;
-let touchStartY = 0;
-let touchStartTime = 0;
 
 // Multiplayer setup
 const client = new Client(window.location.protocol === 'https:' 
@@ -328,28 +244,32 @@ function queueOtherPlayerMove(playerId: string, movement: { x: number; z: number
     }
 }
 
-// Modify the queueMove function 
-function queueMove(movement: { x: number; z: number }) {
-    if (!room || !localPlayer) { // Check for localPlayer representation
+// Modify the queueMove function to accept MoveIntention
+function queueMove(intention: MoveIntention) { // Changed parameter type
+    if (!room || !localPlayer) { 
         console.warn('Cannot queue move, room or localPlayer representation not available.');
         return;
     }
     
-    // Use localPlayer.mesh position if queue is empty
+    // Prevent queuing new moves while already moving
+    if (isMoving) {
+         console.log("Already moving, ignoring new move intention.");
+         return;
+    }
+
     const startPos = moveQueue.length > 0 
         ? moveQueue[moveQueue.length - 1].targetPos 
         : { x: localPlayer.mesh.position.x, z: localPlayer.mesh.position.z }; 
     
     const targetPos = {
-        x: startPos.x + movement.x * MOVE_DISTANCE,
-        z: startPos.z + movement.z * MOVE_DISTANCE
+        x: startPos.x + intention.x * MOVE_DISTANCE,
+        z: startPos.z + intention.z * MOVE_DISTANCE
     };
 
-    // Add to the local player's visual queue
     const command: MoveCommand = { 
-        movement: {
-            x: movement.x * MOVE_DISTANCE,
-            z: movement.z * MOVE_DISTANCE
+        movement: { // Calculate world-space movement for command
+            x: intention.x * MOVE_DISTANCE,
+            z: intention.z * MOVE_DISTANCE
         },
         startPos,
         targetPos,
@@ -357,9 +277,8 @@ function queueMove(movement: { x: number; z: number }) {
     };
     moveQueue.push(command); 
 
-    // Send movement intention to server
     const movePayload: MoveMessage = {
-        movement,
+        movement: intention, // Send the raw intention {x,z} = {-1,0,1}
         startPos,
         targetPos
     };
@@ -423,7 +342,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Update the cleanup function to be more specific
+// Modify the cleanup function
 function cleanupGame() {
     // Stop the animation loop
     if (animationFrameId) {
@@ -434,6 +353,8 @@ function cleanupGame() {
     if (room) {
         room.leave();
     }
+
+    cleanupInput(); // Call input cleanup
 
     // Clean up Three.js resources
     if (renderer) {
@@ -451,23 +372,10 @@ function cleanupGame() {
             }
         });
     }
-
-    // Clear event listeners
-    window.removeEventListener('resize', onWindowResize);
-    window.removeEventListener('keydown', onKeyDown);
-    window.removeEventListener('keyup', onKeyUp);
-    window.removeEventListener('touchstart', onTouchStart);
-    window.removeEventListener('touchmove', onTouchMove);
-    window.removeEventListener('touchend', onTouchEnd);
 }
 
-// Add event listeners
-window.addEventListener('resize', onWindowResize);
-window.addEventListener('keydown', onKeyDown);
-window.addEventListener('keyup', onKeyUp);
-window.addEventListener('touchstart', onTouchStart);
-window.addEventListener('touchmove', onTouchMove);
-window.addEventListener('touchend', onTouchEnd);
+// Initialize Input Handling
+initializeInput(queueMove); // Pass queueMove as the callback
 
 // Start connection and animation loop
 connectToServer();
