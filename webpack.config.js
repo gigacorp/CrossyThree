@@ -15,6 +15,12 @@ export default {
         path: path.resolve(__dirname, 'dist'),
     },
     devtool: 'inline-source-map',
+    watch: true,
+    watchOptions: {
+        ignored: /node_modules/,
+        aggregateTimeout: 300,
+        poll: 1000
+    },
     module: {
         rules: [
             {
@@ -23,21 +29,6 @@ export default {
                 exclude: /node_modules/,
             },
         ],
-    },
-    devServer: {
-        static: {
-            directory: path.join(__dirname, '/'),
-        },
-        compress: true,
-        port: 8080,
-        hot: true,
-        proxy: [
-            {
-                context: ['/'],
-                target: 'http://localhost:3000',
-                ws: true
-            }
-        ]
     },
     resolve: {
         extensions: ['.ts', '.js'],

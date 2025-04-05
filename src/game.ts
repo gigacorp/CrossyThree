@@ -170,8 +170,8 @@ let touchStartTime = 0;
 
 // Multiplayer setup
 const client = new Client(window.location.protocol === 'https:' 
-    ? `wss://${window.location.hostname}`
-    : `ws://${window.location.hostname}:3000`);
+    ? `wss://${window.location.host}`
+    : `ws://${window.location.host}`);
 
 // Update otherPlayers Map to store PlayerRepresentation
 const otherPlayers = new Map<string, PlayerRepresentation>(); 
