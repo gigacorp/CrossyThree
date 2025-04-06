@@ -4,14 +4,14 @@ import * as THREE from 'three';
 import { Client, Room } from 'colyseus.js';
 import { createCamera, updateCameraFrustum, updateCameraPosition, focusOnPosition } from './camera';
 import { createPlayer, processMoveQueue } from './player';
-import { createGrass } from './grass';
+import { Ground } from './Ground';
 import { 
     MAP_WIDTH, MAP_HEIGHT, MAP_HALF_WIDTH, MAP_HALF_HEIGHT,
     MOVE_DURATION, MOVE_DISTANCE, JUMP_HEIGHT,
     SWIPE_THRESHOLD, TAP_THRESHOLD, BLOCK_SIZE,
     ROTATION_LERP_FACTOR
 } from './constants';
-import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand, MinigameObjectState } from './schema.js';
+import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand, MinigameObjectState, Vector3State } from './schema.js';
 import { MoveCommand, PlayerRepresentation, GameObject } from './client-types';
 import { Toolbox } from './toolbox/Toolbox';
 import { initializeInput, cleanupInput, MoveIntention } from './input';
@@ -41,9 +41,9 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 
-// Create grass field
-const grassField = createGrass();
-scene.add(grassField);
+// Create ground
+const ground = new Ground();
+scene.add(ground.mesh);
 
 let localPlayer: PlayerRepresentation | null = null; // Will be populated once ID is received
 
