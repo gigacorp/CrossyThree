@@ -5,7 +5,6 @@ import { Client, Room } from 'colyseus.js';
 import { createCamera, updateCameraFrustum, updateCameraPosition, focusOnPosition } from './camera';
 import { createPlayer, processMoveQueue } from './player';
 import { createGrass } from './grass';
-import { createGroundText } from './text';
 import { 
     MAP_WIDTH, MAP_HEIGHT, MAP_HALF_WIDTH, MAP_HALF_HEIGHT,
     MOVE_DURATION, MOVE_DISTANCE, JUMP_HEIGHT,
@@ -308,20 +307,8 @@ const processMoveQueueWithNotify = (
 function createMinigameObjectVisual(id: string, objState: MinigameObjectState): GameObject | null {
     let gameObject: GameObject | null = null;
 
-    if (objState.type === 'Tile') {
-        gameObject = toolbox.createObject(id, objState);
-    } else if (objState.type === 'Text' && objState.text && objState.position) {
-        // For text objects, we'll create a simple GameObject wrapper
-        const textMesh = createGroundText(objState.text || '', objState.color || "0xffffff");
-        if (textMesh) {
-            gameObject = {
-                id,
-                state: objState,
-                mesh: textMesh,
-                update: () => {} // Text objects don't need updates
-            };
-        }
-    }
+    // Try to create the object using the toolbox
+    gameObject = toolbox.createObject(id, objState);
 
     if (!gameObject) {
         // Fallback placeholder creation if toolbox fails
@@ -344,7 +331,7 @@ function createMinigameObjectVisual(id: string, objState: MinigameObjectState): 
     gameObject.mesh.visible = objState.visible; // Set initial visibility
     scene.add(gameObject.mesh); // Add to the main scene
     minigameObjects.set(id, gameObject);
-    console.log(`Created visual for minigame object: ${id} (${objState.type} - ${objState.tileType || objState.text})`);
+    console.log(`Created visual for minigame object: ${id} (${objState.type})`);
     
     return gameObject;
 }
