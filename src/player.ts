@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BLOCK_SIZE, MAP_HALF_WIDTH, MAP_HALF_HEIGHT, MOVE_DURATION, JUMP_HEIGHT, ROTATION_LERP_FACTOR } from './constants';
+import { BLOCK_SIZE, MAP_HALF_WIDTH, MAP_HALF_HEIGHT, MOVE_DURATION, JUMP_HEIGHT, ROTATION_LERP_FACTOR, MAP_HEIGHT } from './constants';
 import { MoveCommand } from './client-types'; // Import from new file
 
 export function createPlayer(): THREE.Group {
@@ -65,7 +65,12 @@ export function processMoveQueue(queue: MoveCommand[], targetPlayer: THREE.Group
         }
     }
 
-    let isOutOfBounds = Math.abs(move.targetPos.x) > MAP_HALF_WIDTH || Math.abs(move.targetPos.z) > MAP_HALF_HEIGHT;
+    // Check if out of bounds:
+    // - X: Still centered around 0, so use MAP_HALF_WIDTH
+    // - Z: Now starts at 0 and goes negative, so check if beyond MAP_HEIGHT
+    let isOutOfBounds = Math.abs(move.targetPos.x) > MAP_HALF_WIDTH || 
+                        move.targetPos.z > 0 || // Can't go behind start
+                        move.targetPos.z < -MAP_HEIGHT; // Can't go beyond end
 
     const elapsed = Date.now() - move.startTime;
     const progress = Math.min(elapsed / moveDuration, 1); // Ensure progress doesn't exceed 1
