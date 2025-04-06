@@ -41,10 +41,7 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 
-// Create ground
-const ground = new Ground();
-scene.add(ground.mesh);
-
+let ground: Ground | null = null; // Will be populated once game is initialized
 let localPlayer: PlayerRepresentation | null = null; // Will be populated once ID is received
 
 // Initialize toolbox with implementation
@@ -158,6 +155,10 @@ async function connectToServer() {
         console.log('Connected to room:', room.roomId, 'SessionId:', room.sessionId);
         console.log('Local player ID:', room.sessionId);
         console.log('Local player:', localPlayer);
+
+        // Create ground
+        ground = new Ground(MAP_HEIGHT / BLOCK_SIZE);
+        scene.add(ground.mesh);
         
         // Update room ID display
         const roomIdElement = document.getElementById('roomId');

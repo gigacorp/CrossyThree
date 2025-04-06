@@ -1,16 +1,19 @@
 import * as THREE from 'three';
-import { MAP_WIDTH, MAP_HEIGHT, BLOCK_SIZE } from './constants';
+import { MAP_WIDTH, BLOCK_SIZE } from './constants';
 
 export class Ground {
     mesh: THREE.Group;
+    numRows: number;
+    height: number;
 
-    constructor() {
-        this.mesh = this.createGroundMesh();
+    constructor(numRows: number) {
+        this.numRows = numRows;
+        this.mesh = this.createGroundMesh(numRows);
+        this.height = numRows * BLOCK_SIZE;
     }
 
-    private createGroundMesh(): THREE.Group {
+    private createGroundMesh(numRows: number): THREE.Group {
         const rowWidth = BLOCK_SIZE; // Width of each row
-        const numRows = Math.ceil(MAP_HEIGHT / rowWidth); // Calculate number of rows to fill map height
         const groundGroup = new THREE.Group();
 
         console.log("Creating ground with", numRows, "rows");
