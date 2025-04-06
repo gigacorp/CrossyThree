@@ -136,9 +136,38 @@ function syncPlayerState(state: GameState) {
                 otherPlayersMoveQueues.set(id, []);
             }
         }
-        // Update position and rotation from schema using the mesh inside the representation
-        otherPlayerRep.mesh.position.set(playerSchema.x, playerSchema.y, playerSchema.z);
-        otherPlayerRep.mesh.rotation.y = playerSchema.rotation;
+
+        // Queue a move command for the other player
+        const moveQueue = otherPlayersMoveQueues.get(id);
+        if (!moveQueue) {
+            console.error(`Move queue not found for player ${id} in syncPlayerState`);
+            // Update position and rotation from schema using the mesh inside the representation
+            otherPlayerRep.mesh.position.set(playerSchema.x, playerSchema.y, playerSchema.z);
+            otherPlayerRep.mesh.rotation.y = playerSchema.rotation;
+            return;
+        }
+
+        const lastMove = moveQueue[moveQueue.length - 1];
+        const currentPos = lastMove ? lastMove.targetPos : otherPlayerRep.mesh.position;
+        const targetPos = { x: playerSchema.x, z: playerSchema.z };
+        const movement = {
+            x: Math.round((targetPos.x - currentPos.x) / BLOCK_SIZE),
+            z: Math.round((targetPos.z - currentPos.z) / BLOCK_SIZE)
+        };
+        
+        const command: MoveCommand = {
+            movement,
+            startPos: { x: currentPos.x, z: currentPos.z },
+            targetPos: { x: targetPos.x, z: targetPos.z },
+            startTime: null
+        };
+        if (movement.x !== 0 || movement.z !== 0) {
+            console.log("Queueing move command for player", id, movement);
+            moveQueue.push(command);
+        } else {
+            otherPlayerRep.mesh.position.set(playerSchema.x, playerSchema.y, playerSchema.z);
+            otherPlayerRep.mesh.rotation.y = playerSchema.rotation;
+        }
     });
 
     // Remove local representations for players NOT in the current server state
