@@ -5,7 +5,7 @@ import { monitor } from '@colyseus/monitor';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { MAP_HALF_HEIGHT as IMPORTED_MAP_HALF_HEIGHT, BLOCK_SIZE as IMPORTED_BLOCK_SIZE } from './constants.js'; // Use aliases to avoid conflict
-import { Player, GameState, MoveMessage, PlayerMoveCommand, MinigameObjectState, Vector3State, ActionState } from './schema.js';
+import { Player, GameState, MoveMessage, PlayerMoveCommand, MinigameObjectState, Vector3State, ActionState, RowData } from './schema.js';
 import * as THREE from 'three'; // Keep if needed, remove if not
 import * as fs from 'fs';
 
@@ -62,6 +62,10 @@ interface MinigameDefinition {
     minigameId: string;
     displayName: string;
     description: string;
+    rows: Array<{
+        text?: string;
+        // Add other row properties as needed
+    }>;
     objects: Array<{
         id: string;
         type: string;
@@ -135,6 +139,8 @@ class GameRoom extends Room<GameState> {
         const fileContent = fs.readFileSync(filePath, 'utf-8');
         const definition: MinigameDefinition = JSON.parse(fileContent);
 
+        console.log(`HITTA rows: ${definition.rows}`);
+
         // --- Validation (Basic Example) ---
         if (!definition || !definition.minigameId || !definition.objects) {
             throw new Error(`Invalid minigame definition format in ${filePath}`);
@@ -143,6 +149,16 @@ class GameRoom extends Room<GameState> {
         // --- Populate State ---
         this.state.minigameObjects.clear(); // Clear previous objects
         this.state.currentMinigameId = definition.minigameId;
+
+        // Clear and populate rows
+        this.state.rows = [];
+        definition.rows.forEach(rowData => {
+            const row = new RowData();
+            if (rowData.text) {
+                row.text = rowData.text;
+            }
+            this.state.rows.push(row);
+        });
 
         definition.objects.forEach(objData => {
             const objState = new MinigameObjectState();

@@ -86,6 +86,15 @@ defineTypes(Player, {
     score: "number",
 });
 
+// Add RowData schema
+export class RowData extends Schema {
+    text?: string;
+    // Add other row properties as needed
+}
+defineTypes(RowData, {
+    text: "string"
+});
+
 // Define the GameState schema
 export class GameState extends Schema {
     players = new MapSchema<Player>();
@@ -96,14 +105,16 @@ export class GameState extends Schema {
 
     // Holds all the objects for the currently loaded minigame
     minigameObjects = new MapSchema<MinigameObjectState>();
+
+    // Holds the rows data from the minigame JSON
+    rows: RowData[] = [];
 }
 defineTypes(GameState, {
     players: { map: Player },
     playerCount: "number",
-
-    // Added minigame fields back
     currentMinigameId: "string",
-    minigameObjects: { map: MinigameObjectState }
+    minigameObjects: { map: MinigameObjectState },
+    rows: [RowData]
 });
 
 // --- Message Interfaces ---

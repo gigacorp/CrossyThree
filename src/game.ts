@@ -112,6 +112,11 @@ function syncPlayerState(state: GameState) {
         return;
     }
 
+    if (state.rows && !ground) {
+        ground = new Ground(state.rows);
+        scene.add(ground.mesh);
+    }
+
     // Create or update players based on server state
     state.players.forEach((playerSchema: PlayerSchema, id: string) => { 
         playersInServerState.add(id); 
@@ -155,10 +160,6 @@ async function connectToServer() {
         console.log('Connected to room:', room.roomId, 'SessionId:', room.sessionId);
         console.log('Local player ID:', room.sessionId);
         console.log('Local player:', localPlayer);
-
-        // Create ground
-        ground = new Ground(MAP_HEIGHT / BLOCK_SIZE);
-        scene.add(ground.mesh);
         
         // Update room ID display
         const roomIdElement = document.getElementById('roomId');
