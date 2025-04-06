@@ -13,7 +13,7 @@ import {
     ROTATION_LERP_FACTOR
 } from './constants';
 import { GameState, Player as PlayerSchema, MoveMessage, PlayerMoveCommand, MinigameObjectState } from './schema.js';
-import { MoveCommand, Workspace, PlayerRepresentation, Toolbox as ToolboxInterface } from './client-types';
+import { MoveCommand, PlayerRepresentation, GameObject } from './client-types';
 import { Toolbox } from './toolbox/Toolbox';
 import { initializeInput, cleanupInput, MoveIntention } from './input';
 
@@ -94,8 +94,8 @@ const otherPlayers = new Map<string, PlayerRepresentation>();
 const otherPlayersMoveQueues = new Map<string, MoveCommand[]>(); 
 const clock = new THREE.Clock(); 
 
-// Keep track of minigame object visuals
-const minigameObjectMeshes: Map<string, THREE.Object3D> = new Map();
+// Keep track of minigame objects
+const minigameObjects: Map<string, GameObject> = new Map();
 
 // Track the last processed minigame ID to detect changes
 let lastProcessedMinigameId: string | null = null; 
@@ -304,12 +304,132 @@ const processMoveQueueWithNotify = (
     return stillMoving; 
 };
 
-// Update the animate function to remove logging
+// Creates the visual representation for a minigame object
+function createMinigameObjectVisual(id: string, objState: MinigameObjectState): GameObject | null {
+    let gameObject: GameObject | null = null;
+
+    if (objState.type === 'Tile') {
+        gameObject = toolbox.createObject(id, objState);
+    } else if (objState.type === 'Text' && objState.text && objState.position) {
+        // For text objects, we'll create a simple GameObject wrapper
+        const textMesh = createGroundText(objState.text || '', objState.color || "0xffffff");
+        if (textMesh) {
+            gameObject = {
+                id,
+                state: objState,
+                mesh: textMesh,
+                update: () => {} // Text objects don't need updates
+            };
+        }
+    }
+
+    if (!gameObject) {
+        // Fallback placeholder creation if toolbox fails
+        console.error(`Failed to create any visual for minigame object: ${id}`, objState);
+        const placeholderGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE * 0.2, BLOCK_SIZE);
+        const placeholderMat = new THREE.MeshBasicMaterial({color: 0xff00ff, wireframe: true});
+        const placeholderMesh = new THREE.Mesh(placeholderGeo, placeholderMat);
+        
+        gameObject = {
+            id,
+            state: objState,
+            mesh: placeholderMesh,
+            update: () => {}
+        };
+    }
+
+    // Common logic for any created object
+    gameObject.mesh.position.set(objState.position.x, objState.position.y, objState.position.z);
+    gameObject.mesh.name = `minigame_${id}`; // Set name for debugging
+    gameObject.mesh.visible = objState.visible; // Set initial visibility
+    scene.add(gameObject.mesh); // Add to the main scene
+    minigameObjects.set(id, gameObject);
+    console.log(`Created visual for minigame object: ${id} (${objState.type} - ${objState.tileType || objState.text})`);
+    
+    return gameObject;
+}
+
+// Removes the visual representation of a minigame object
+function removeMinigameObjectVisual(id: string) {
+    if (minigameObjects.has(id)) {
+        const gameObject = minigameObjects.get(id)!;
+        scene.remove(gameObject.mesh);
+
+        // Dispose of geometry and material to free up memory
+        if (gameObject.mesh instanceof THREE.Mesh) {
+            gameObject.mesh.geometry?.dispose();
+            if (Array.isArray(gameObject.mesh.material)) {
+                gameObject.mesh.material.forEach(mat => mat.dispose());
+            } else {
+                gameObject.mesh.material?.dispose();
+            }
+        }
+        // Handle disposal for other types if necessary (Groups, Sprites)
+
+        minigameObjects.delete(id);
+        console.log(`Removed visual for minigame object: ${id}`);
+    }
+}
+
+// Performs a full synchronization - ensuring local visuals match server state
+function syncMinigameObjects(state: GameState) {
+    // Check if the minigame has changed
+    if (state.currentMinigameId !== lastProcessedMinigameId) {
+        console.log(`Minigame changed from ${lastProcessedMinigameId} to ${state.currentMinigameId}. Clearing visuals.`);
+        // Remove all existing minigame visuals
+        minigameObjects.forEach((obj, id) => {
+            removeMinigameObjectVisual(id);
+        });
+        minigameObjects.clear();
+        lastProcessedMinigameId = state.currentMinigameId;
+        if (lastProcessedMinigameId === null) {
+             console.log("Minigame ended or cleared.");
+             return; 
+        }
+    }
+
+    // If no minigame is active, ensure no objects are present locally
+    if (!state.currentMinigameId || !state.minigameObjects) {
+         if (minigameObjects.size > 0) {
+             console.log("No active minigame, clearing stray visuals...");
+              minigameObjects.forEach((obj, id) => removeMinigameObjectVisual(id));
+              minigameObjects.clear();
+         }
+        return; 
+    }
+
+    // --- Sync existing and add new objects ---
+    const currentServerIds = new Set(state.minigameObjects.keys());
+
+    state.minigameObjects.forEach((objState, id) => {
+        let gameObject = minigameObjects.get(id);
+
+        if (!gameObject) {
+            // Create visual if it doesn't exist locally
+            createMinigameObjectVisual(id, objState);
+        } else {
+            // Visual exists, update its properties (e.g., visibility)
+            if (gameObject.mesh.visible !== objState.visible) {
+                gameObject.mesh.visible = objState.visible;
+            }
+            // Update the state
+            gameObject.state = objState;
+        }
+    });
+
+    // --- Remove objects that are no longer in the server state ---
+    minigameObjects.forEach((gameObject, id) => {
+        if (!currentServerIds.has(id)) {
+            console.log(`Sync: Removing stale object ${id}`);
+            removeMinigameObjectVisual(id);
+        }
+    });
+}
+
+// Update the animation loop to include GameObject updates
 function animate() {
     animationFrameId = requestAnimationFrame(animate);
     const delta = clock.getDelta();
-
-    // ... (Debug logs removed)
 
     // Process movement for local player if representation exists
     if (localPlayer) {
@@ -324,6 +444,11 @@ function animate() {
         if (playerRep) {
             processMoveQueueWithNotify(queue, playerRep.mesh, delta);
         }
+    });
+
+    // Update all minigame objects
+    minigameObjects.forEach(gameObject => {
+        gameObject.update(delta);
     });
 
     // Update camera position
@@ -386,110 +511,3 @@ document.getElementById('exitButton')?.addEventListener('click', () => {
     cleanupGame();
     window.location.href = '/';
 }); 
-
-// Creates the visual representation for a minigame object
-function createMinigameObjectVisual(id: string, objState: MinigameObjectState): THREE.Object3D | null {
-    let objectVisual: THREE.Object3D | null = null;
-
-    if (objState.type === 'Tile') {
-        objectVisual = toolbox.createObject(objState.tileType || '');
-    } else if (objState.type === 'Text', objState.text, objState.position) {
-        objectVisual = createGroundText(objState.text || '', objState.color || "0xffffff");
-    }
-
-    if (!objectVisual) {
-        // Fallback placeholder creation if toolbox fails
-        console.error(`Failed to create any visual for minigame object: ${id}`, objState);
-        const placeholderGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE * 0.2, BLOCK_SIZE);
-        const placeholderMat = new THREE.MeshBasicMaterial({color: 0xff00ff, wireframe: true});
-        objectVisual = new THREE.Mesh(placeholderGeo, placeholderMat);
-    }
-
-    // Common logic for any created object
-    objectVisual.position.set(objState.position.x, objState.position.y, objState.position.z);
-    objectVisual.name = `minigame_${id}`; // Set name for debugging
-    objectVisual.visible = objState.visible; // Set initial visibility
-    scene.add(objectVisual); // Add to the main scene
-    minigameObjectMeshes.set(id, objectVisual);
-    console.log(`Created visual for minigame object: ${id} (${objState.type} - ${objState.tileType || objState.text})`);
-    
-    return objectVisual;
-}
-
-// Removes the visual representation of a minigame object
-function removeMinigameObjectVisual(id: string) {
-    if (minigameObjectMeshes.has(id)) {
-        const objectVisual = minigameObjectMeshes.get(id)!;
-        scene.remove(objectVisual);
-
-        // Dispose of geometry and material to free up memory
-        if (objectVisual instanceof THREE.Mesh) {
-            objectVisual.geometry?.dispose();
-            if (Array.isArray(objectVisual.material)) {
-                objectVisual.material.forEach(mat => mat.dispose());
-            } else {
-                objectVisual.material?.dispose();
-            }
-        }
-        // Handle disposal for other types if necessary (Groups, Sprites)
-
-        minigameObjectMeshes.delete(id);
-        console.log(`Removed visual for minigame object: ${id}`);
-    }
-}
-
-// Performs a full synchronization - ensuring local visuals match server state
-function syncMinigameObjects(state: GameState) {
-    // Check if the minigame has changed
-    if (state.currentMinigameId !== lastProcessedMinigameId) {
-        console.log(`Minigame changed from ${lastProcessedMinigameId} to ${state.currentMinigameId}. Clearing visuals.`);
-        // Remove all existing minigame visuals
-        minigameObjectMeshes.forEach((mesh, id) => {
-            removeMinigameObjectVisual(id);
-        });
-        minigameObjectMeshes.clear();
-        lastProcessedMinigameId = state.currentMinigameId;
-        if (lastProcessedMinigameId === null) {
-             console.log("Minigame ended or cleared.");
-             return; 
-        }
-    }
-
-    // If no minigame is active, ensure no objects are present locally
-    if (!state.currentMinigameId || !state.minigameObjects) {
-         if (minigameObjectMeshes.size > 0) {
-             console.log("No active minigame, clearing stray visuals...");
-              minigameObjectMeshes.forEach((mesh, id) => removeMinigameObjectVisual(id));
-              minigameObjectMeshes.clear();
-         }
-        return; 
-    }
-
-    // --- Sync existing and add new objects ---
-    const currentServerIds = new Set(state.minigameObjects.keys());
-
-    state.minigameObjects.forEach((objState, id) => {
-        let mesh = minigameObjectMeshes.get(id);
-
-        if (!mesh) {
-            // Create visual if it doesn't exist locally
-            const newMesh = createMinigameObjectVisual(id, objState);
-            // We don't need to assign to mesh var here as create adds to map
-            // mesh = newMesh; // This line caused the type error
-        } else {
-            // Visual exists, update its properties (e.g., visibility)
-            if (mesh.visible !== objState.visible) {
-                mesh.visible = objState.visible;
-            }
-            // TODO: Sync other potentially changing properties
-        }
-    });
-
-    // --- Remove objects that are no longer in the server state ---
-    minigameObjectMeshes.forEach((mesh, id) => {
-        if (!currentServerIds.has(id)) {
-            console.log(`Sync: Removing stale object ${id}`);
-            removeMinigameObjectVisual(id);
-        }
-    });
-} 

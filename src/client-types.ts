@@ -1,5 +1,6 @@
 import { Scene, Object3D } from "three";
 import * as THREE from 'three';
+import { MinigameObjectState } from './schema';
 
 // Interface for move commands stored in client-side animation queues
 export interface MoveCommand {
@@ -19,8 +20,9 @@ export interface PlayerRepresentation {
 // Base interface for all game objects that can be stored in the Toolbox
 export interface GameObject {
     mesh: THREE.Object3D;
-    type: string;
-    options?: any;
+    update(delta: number): void;
+    id: string;
+    state: MinigameObjectState;
 }
 
 // Roblox-inspired Toolbox for managing game objects
@@ -36,13 +38,6 @@ export interface Toolbox {
     
     // Method to get all objects of a specific type
     getAllObjects<T extends THREE.Object3D>(type: string): T[];
-}
-
-export interface Workspace {
-    scene: THREE.Scene;
-    localPlayer: PlayerRepresentation; // Use the new type
-    otherPlayers: PlayerRepresentation[]; // Use the new type
-    toolbox: Toolbox; // Add the toolbox to the workspace
 }
 
 // Add other client-specific types here in the future if needed 

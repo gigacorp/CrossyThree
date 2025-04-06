@@ -3,34 +3,31 @@ import { BLOCK_SIZE } from '../constants';
 import { createCoin } from './objects/Coin';
 import { createLava } from './objects/Lava';
 import { createButton } from './objects/Button';
+import { GameObject } from '../client-types';
+import { MinigameObjectState } from '../schema';
 
 export class Toolbox {
     constructor() { }
 
     // Method to create objects based on type
-    // Remove options parameter
-    createObject(type: string): THREE.Object3D | null {
-        let object: THREE.Object3D | null = null;
+    createObject(id: string, state: MinigameObjectState): GameObject | null {
+        let object: GameObject | null = null;
 
-        switch (type) {
+        switch (state.tileType) {
             case 'Coin':
-                object = createCoin();
+                object = createCoin(id, state);
                 break;
             case 'Lava':
-                object = createLava();
+                object = createLava(id, state);
                 break;
             case 'Button':
-                object = createButton();
+                object = createButton(id, state);
                 break;
             default:
-                console.warn(`Toolbox: Unknown object type requested: ${type}`);
+                console.warn(`Toolbox: Unknown object type requested: ${state.tileType}`);
                 return null;
         }
 
-        // Wrap the object in a group to make its position relative to the group's position
-        let group = new THREE.Group();
-        group.add(object);
-
-        return group;
+        return object;
     }
 } 

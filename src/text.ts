@@ -60,6 +60,8 @@ export function createGroundText(text: string, color = '#ffffff'): THREE.Mesh | 
     textMesh.position.y = 0.1; // Slightly above ground
     textMesh.rotation.x = -Math.PI / 2; // Rotate to lie flat on the ground
 
+    textMesh.receiveShadow = true;
+
     // Wrap in group
     const group = new THREE.Group();
     group.add(textMesh);
