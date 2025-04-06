@@ -78,7 +78,6 @@ scene.add(directionalLight);
 
 // Movement queue for the local player
 const moveQueue: MoveCommand[] = [];
-let isMoving = false;
 
 // Multiplayer setup
 const client = new Client(window.location.protocol === 'https:' 
@@ -251,12 +250,6 @@ function queueMove(intention: MoveIntention) { // Changed parameter type
         console.warn('Cannot queue move, room or localPlayer representation not available.');
         return;
     }
-    
-    // Prevent queuing new moves while already moving
-    if (isMoving) {
-         console.log("Already moving, ignoring new move intention.");
-         return;
-    }
 
     const startPos = moveQueue.length > 0 
         ? moveQueue[moveQueue.length - 1].targetPos 
@@ -285,25 +278,6 @@ function queueMove(intention: MoveIntention) { // Changed parameter type
     };
     room.send('move', movePayload);
 }
-
-// Override processMoveQueue to notify minigame manager - REMOVE Notify
-const originalProcessMoveQueue = processMoveQueue; 
-
-// Wrapper function remains the same signature, takes Group
-const processMoveQueueWithNotify = (
-    queue: MoveCommand[], 
-    object: THREE.Group, 
-    delta: number 
-): boolean => {
-    const wasMoving = queue.length > 0;
-    
-    originalProcessMoveQueue(queue, object); // Calls original with 2 args
-    
-    const stillMoving = queue.length > 0;
-    const justFinishedMoving = wasMoving && !stillMoving;
-
-    return stillMoving; 
-};
 
 // Creates the visual representation for a minigame object
 function createMinigameObjectVisual(id: string, objState: MinigameObjectState): GameObject | null {
@@ -422,16 +396,14 @@ function animate() {
 
     // Process movement for local player if representation exists
     if (localPlayer) {
-        isMoving = processMoveQueueWithNotify(moveQueue, localPlayer.mesh, delta);
-    } else {
-        isMoving = false;
+        processMoveQueue(moveQueue, localPlayer.mesh);
     }
 
     // Process movement for other players
     otherPlayersMoveQueues.forEach((queue, id) => {
         const playerRep = otherPlayers.get(id);
         if (playerRep) {
-            processMoveQueueWithNotify(queue, playerRep.mesh, delta);
+            processMoveQueue(queue, playerRep.mesh);
         }
     });
 
